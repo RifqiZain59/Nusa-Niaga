@@ -1,119 +1,32 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-
-// Import Controller yang diperlukan
 import '../controllers/detail_menu_controller.dart';
-
-// Import View Tujuan (SESUAIKAN PATH INI DENGAN STRUKTUR PROYEK ANDA)
 import '../../checkout/views/checkout_view.dart';
-// Asumsi Anda juga memiliki file rute terpusat (contoh: AppPages)
 
 class DetailMenuView extends GetView<DetailMenuController> {
-  // Tambahkan parameter untuk menerima data menu yang diklik dari HomeView
-  final Map<String, dynamic>? item;
+  const DetailMenuView({super.key});
 
-  const DetailMenuView({super.key, this.item});
-
-  // Deklarasi System Overlay Style untuk ikon hitam pada status bar terang/transparan
-  static const SystemUiOverlayStyle _darkStatusBar = SystemUiOverlayStyle(
-    statusBarIconBrightness:
-        Brightness.dark, // Ikon status bar menjadi gelap (hitam)
-    statusBarColor: Colors.transparent, // Warna status bar tetap transparan
-  );
+  String formatRibuan(double number) {
+    String str = number.toInt().toString();
+    RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
+    return str.replaceAllMapped(reg, (Match m) => '${m[1]}.');
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Definisikan data yang akan digunakan (mengambil dari item jika ada, jika tidak, gunakan default)
-    final String menuName = item?['name'] ?? 'Caffe Mocha';
-    final double menuPrice = item?['price'] ?? 4.53;
-    final double menuRating = item?['rating'] ?? 4.8;
-    final String menuImage = item?['image'] ?? 'assets/caffe_mocha.jpg';
-    final String menuType = item?['type'] ?? 'Ice/Hot';
+    const Color primaryColor = Color(0xFF6E4E3A);
+    const Color buttonColor = Color(0xFFC78C53);
 
-    // Definisi warna dan padding
-    const Color primaryColor = Color(0xFF6E4E3A); // Cokelat tua
-    const Color buttonColor = Color(0xFFC78C53); // Cokelat oranye/aksen
-    const double horizontalPadding = 20.0;
-    const double borderRadius = 12.0;
-
-    // Inisialisasi controller jika belum terdaftar (optional, tergantung binding Anda)
-    // Jika Anda menggunakan Get.put() di binding, baris ini tidak diperlukan.
-    if (Get.isRegistered<DetailMenuController>() == false) {
+    // Mencegah error "Controller not found" secara langsung di View
+    if (!Get.isRegistered<DetailMenuController>()) {
       Get.put(DetailMenuController());
     }
 
-    // --- Widget Kustom Pengontrol Kuantitas (Menggunakan Obx untuk reaktif) ---
-    Widget _buildQuantityControl() {
-      return Obx(() {
-        final int currentQuantity = controller
-            .quantity
-            .value; // Mengambil nilai reaktif dari controller
-
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(borderRadius),
-            border: Border.all(color: Colors.grey.shade300, width: 1.5),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Tombol Kurang (-)
-              InkWell(
-                onTap: () {
-                  controller
-                      .decrementQuantity(); // Memanggil fungsi di controller
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(4.0),
-                  child: Icon(Icons.remove, color: primaryColor, size: 24),
-                ),
-              ),
-              const SizedBox(width: 16),
-
-              // Angka Kuantitas Reaktif
-              Text(
-                currentQuantity.toString(),
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                ),
-              ),
-              const SizedBox(width: 16),
-
-              // Tombol Tambah (+)
-              InkWell(
-                onTap: () {
-                  controller
-                      .incrementQuantity(); // Memanggil fungsi di controller
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(4.0),
-                  decoration: BoxDecoration(
-                    color: buttonColor,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.add, color: Colors.white, size: 24),
-                ),
-              ),
-            ],
-          ),
-        );
-      });
-    }
-
-    // --- Struktur Utama Halaman ---
     return Scaffold(
       backgroundColor: Colors.white,
-
-      // AppBar Kustom
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.white,
         elevation: 0,
-        systemOverlayStyle: _darkStatusBar,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () => Get.back(),
@@ -123,289 +36,304 @@ class DetailMenuView extends GetView<DetailMenuController> {
           style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.favorite_border, color: Colors.black),
-            onPressed: () {
-              // Logika toggle favorit
-            },
-          ),
-        ],
       ),
+      body: SafeArea(
+        // Melindungi konten dari Notch dan Navigasi Bar HP
+        child: Obx(() {
+          if (controller.isLoading.value && controller.product.isEmpty) {
+            return const Center(
+              child: CircularProgressIndicator(color: primaryColor),
+            );
+          }
+          final product = controller.product;
+          final String img = product['image_url'] ?? '';
 
-      // Isi Halaman
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 1. Gambar Menu
-            Padding(
-              padding: const EdgeInsets.all(horizontalPadding),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(borderRadius * 2),
-                child: AspectRatio(
-                  aspectRatio: 16 / 10,
-                  child: Image.asset(
-                    menuImage,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      color: Colors.grey.shade200,
-                      child: const Center(
-                        child: Icon(Icons.image_not_supported),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
-            // Padding untuk konten di bawah gambar
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: horizontalPadding,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 2. Nama Minuman
-                  Text(
-                    menuName,
-                    style: const TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-
-                  // 3. Tipe dan Rating
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          return SingleChildScrollView(
+            padding: const EdgeInsets.only(bottom: 120),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildImage(img),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        menuType,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey,
-                        ),
-                      ),
-
-                      // Rating Bintang
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Icon(Icons.star, color: Colors.amber, size: 20),
-                          const SizedBox(width: 4),
-                          Text(
-                            menuRating.toStringAsFixed(1),
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                          Expanded(
+                            child: Text(
+                              product['name'] ?? '',
+                              style: const TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
-                          const Text(
-                            ' (230)',
-                            style: TextStyle(fontSize: 14, color: Colors.grey),
+                          Row(
+                            children: [
+                              // Tombol Favorit (Status permanen di database)
+                              Obx(
+                                () => IconButton(
+                                  onPressed: () => controller.toggleFavorite(),
+                                  icon: controller.isFavoriteLoading.value
+                                      ? const SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : Icon(
+                                          controller.isFavorite.value
+                                              ? Icons.favorite
+                                              : Icons.favorite_border,
+                                          color: controller.isFavorite.value
+                                              ? Colors.red
+                                              : Colors.grey,
+                                          size: 28,
+                                        ),
+                                ),
+                              ),
+                              _buildRatingBox(product['rating']),
+                            ],
                           ),
                         ],
                       ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // 4. Judul Deskripsi
-                  const Text(
-                    'Description',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-
-                  // 5. Teks Deskripsi (Simulasi Teks dan "Read More")
-                  RichText(
-                    text: TextSpan(
-                      style: const TextStyle(
-                        fontSize: 15,
-                        color: Colors.black87,
-                        height: 1.5,
-                      ),
-                      children: <TextSpan>[
-                        const TextSpan(
-                          text:
-                              'A cappuccino is an approximately 150 ml (5 oz) beverage, with 25 ml of espresso coffee and 85ml of fresh milk the fo.. ',
-                        ),
-                        TextSpan(
-                          text: 'Read More',
-                          style: TextStyle(
-                            color: buttonColor,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // 6. Kontrol Kuantitas
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
+                      const SizedBox(height: 16),
                       const Text(
-                        'Quantity',
+                        'Description',
                         style: TextStyle(
-                          fontSize: 20,
+                          fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: Colors.black,
                         ),
                       ),
-                      _buildQuantityControl(), // Widget kontrol kuantitas reaktif
+                      const SizedBox(height: 8),
+                      Text(
+                        product['description'] ?? 'No description available.',
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: Colors.grey.shade700,
+                          height: 1.5,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      _buildQuantityControl(controller, buttonColor),
+                      const SizedBox(height: 24),
+                      const Text(
+                        'Special Instructions',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _buildNotesField(controller, primaryColor),
                     ],
                   ),
-
-                  const SizedBox(height: 24),
-
-                  // 7. INPUTAN CATATAN (SPECIAL INSTRUCTIONS)
-                  const Text(
-                    'Special Instructions/Notes',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-
-                  TextFormField(
-                    controller: controller
-                        .notesTextController, // Menambahkan controller
-                    decoration: InputDecoration(
-                      hintText:
-                          'Misalnya: Ekstra gula, tanpa es, atau pesan khusus...',
-                      hintStyle: const TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(borderRadius),
-                        borderSide: BorderSide(color: Colors.grey.shade300),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(borderRadius),
-                        borderSide: const BorderSide(
-                          color: primaryColor,
-                          width: 2,
-                        ),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                    ),
-                    maxLines: 3,
-                    keyboardType: TextInputType.multiline,
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // Ruang di bawah konten sebelum bottomNavigationBar muncul
-                  SizedBox(height: Get.height * 0.15),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
+          );
+        }),
+      ),
+      bottomNavigationBar: SafeArea(
+        child: _buildBottomBar(controller, primaryColor, buttonColor),
+      ),
+    );
+  }
+
+  // --- WIDGET COMPONENTS ---
+  Widget _buildImage(String img) {
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: AspectRatio(
+          aspectRatio: 16 / 10,
+          child: Image.network(
+            img,
+            fit: BoxFit.cover,
+            errorBuilder: (c, e, s) => Container(
+              color: Colors.grey[200],
+              child: const Icon(Icons.broken_image),
+            ),
+          ),
         ),
       ),
+    );
+  }
 
-      // Bagian Bawah: Harga dan Tombol Beli (Bottom Navigation Bar)
-      bottomNavigationBar: SafeArea(
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: horizontalPadding,
-            vertical: 16.0,
+  Widget _buildRatingBox(dynamic rating) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.amber.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.star, color: Colors.amber, size: 18),
+          const SizedBox(width: 4),
+          Text(
+            rating?.toString() ?? "4.8",
+            style: const TextStyle(fontWeight: FontWeight.bold),
           ),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.grey.withOpacity(0.15),
-                spreadRadius: 3,
-                blurRadius: 10,
-                offset: const Offset(0, -3),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              // Harga
-              Expanded(
-                flex: 1,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Price',
-                      style: TextStyle(fontSize: 14, color: Colors.grey),
-                    ),
-                    Obx(
-                      () => Text(
-                        '\$ ${controller.totalPrice.value.toStringAsFixed(2)}', // Harga reaktif
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: primaryColor,
-                        ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuantityControl(DetailMenuController controller, Color button) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        const Text(
+          'Quantity',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        Obx(
+          () => Container(
+            width: 130,
+            height: 40,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: Row(
+              children: [
+                GestureDetector(
+                  onTap: controller.decrementQuantity,
+                  child: Container(
+                    width: 40,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: button,
+                      borderRadius: const BorderRadius.horizontal(
+                        left: Radius.circular(11),
                       ),
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 20),
-
-              // Tombol "Buy Now"
-              Expanded(
-                flex: 2,
-                child: ElevatedButton(
-                  onPressed: () {
-                    // 1. Kumpulkan data pesanan
-                    final Map<String, dynamic> orderData = {
-                      'name': menuName,
-                      'price_per_item': menuPrice,
-                      'quantity': controller.quantity.value,
-                      'total_amount': controller.totalPrice.value,
-                      'notes': controller.notesTextController.text,
-                    };
-
-                    // 2. Navigasi ke CheckoutView dan kirim data
-                    Get.to(() => const CheckoutView(), arguments: orderData);
-
-                    // Atau, jika Anda menggunakan rute terpusat:
-                    // Get.toNamed(Routes.CHECKOUT, arguments: orderData);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: buttonColor,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(borderRadius),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 14.0),
-                    elevation: 5,
-                  ),
-                  child: const Text(
-                    'Buy Now',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                    child: const Icon(
+                      Icons.remove,
                       color: Colors.white,
+                      size: 20,
                     ),
                   ),
                 ),
-              ),
-            ],
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      '${controller.quantity.value}',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: controller.incrementQuantity,
+                  child: Container(
+                    width: 40,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: button,
+                      borderRadius: const BorderRadius.horizontal(
+                        right: Radius.circular(11),
+                      ),
+                    ),
+                    child: const Icon(Icons.add, color: Colors.white, size: 20),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildNotesField(DetailMenuController controller, Color primary) {
+    return TextFormField(
+      controller: controller.notesTextController,
+      decoration: InputDecoration(
+        hintText: 'Contoh: Kurangi gula...',
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  Widget _buildBottomBar(
+    DetailMenuController controller,
+    Color primary,
+    Color button,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Total Price',
+                  style: TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+                Obx(
+                  () => Text(
+                    'Rp ${formatRibuan(controller.totalPrice.value)}',
+                    style: TextStyle(
+                      fontSize: 19,
+                      fontWeight: FontWeight.bold,
+                      color: primary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            flex: 2,
+            child: ElevatedButton(
+              onPressed: () => Get.to(
+                () => const CheckoutView(),
+                arguments: {
+                  ...controller.product,
+                  'quantity': controller.quantity.value,
+                  'total': controller.totalPrice.value,
+                },
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: button,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                'Buy Now',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

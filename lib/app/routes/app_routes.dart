@@ -9,7 +9,6 @@ abstract class Routes {
   static const PROMO = _Paths.PROMO;
   static const POIN = _Paths.POIN;
   static const PROFILE = _Paths.PROFILE;
-  static const DETAIL_PROMO = _Paths.DETAIL_PROMO;
   static const DETAIL_POIN = _Paths.DETAIL_POIN;
   static const CHECKOUT = _Paths.CHECKOUT;
   static const PAYMENT = _Paths.PAYMENT;
@@ -24,7 +23,6 @@ abstract class _Paths {
   static const PROMO = '/promo';
   static const POIN = '/poin';
   static const PROFILE = '/profile';
-  static const DETAIL_PROMO = '/detail-promo';
   static const DETAIL_POIN = '/detail-poin';
   static const CHECKOUT = '/checkout';
   static const PAYMENT = '/payment';

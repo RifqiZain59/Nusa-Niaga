@@ -10,8 +10,6 @@ import '../modules/detail_menu/bindings/detail_menu_binding.dart';
 import '../modules/detail_menu/views/detail_menu_view.dart';
 import '../modules/detail_poin/bindings/detail_poin_binding.dart';
 import '../modules/detail_poin/views/detail_poin_view.dart';
-import '../modules/detail_promo/bindings/detail_promo_binding.dart';
-import '../modules/detail_promo/views/detail_promo_view.dart';
 import '../modules/home/bindings/home_binding.dart';
 import '../modules/home/views/home_view.dart';
 import '../modules/login/bindings/login_binding.dart';
@@ -60,12 +58,6 @@ class AppPages {
       name: _Paths.PROFILE,
       page: () => const ProfileView(),
       binding: ProfileBinding(),
-    ),
-    GetPage(
-      name: _Paths.DETAIL_PROMO,
-      page: () => const DetailPromoView(),
-      binding:
-          DetailPromoBinding(), // Inilah yang menghubungkan View dan Controller
     ),
     GetPage(
       name: _Paths.DETAIL_POIN,
