@@ -4,8 +4,9 @@ import 'dart:async';
 import 'package:get/get.dart';
 import 'package:ionicons/ionicons.dart';
 
-// Import Controller & Views (Pastikan path ini sesuai dengan struktur folder Anda)
+// Import Controller & Views
 import 'package:nusaniaga/app/modules/home/controllers/home_controller.dart';
+// Pastikan import di bawah ini sesuai struktur folder Anda
 import 'package:nusaniaga/app/modules/Poin/views/poin_view.dart';
 import 'package:nusaniaga/app/modules/Profile/views/profile_view.dart';
 import 'package:nusaniaga/app/modules/promo/views/promo_view.dart';
@@ -16,8 +17,6 @@ import 'package:nusaniaga/app/modules/detail_menu/views/detail_menu_view.dart';
 const Color _kBackgroundColor = Color(0xFFFFFFFF);
 const Color _kSearchBarColor = Color(0xFFF5F5F5);
 const Color _kAccentColor = Color(0xFF6E4E3A);
-
-enum MenuCategory { nearest, favorite }
 
 // Fungsi Global untuk Format Rupiah
 String formatRupiah(dynamic number) {
@@ -45,15 +44,21 @@ class HomeView extends StatefulWidget {
 
 class _HomeViewState extends State<HomeView> {
   final HomeController controller = Get.put(HomeController());
-  MenuCategory _selectedCategory = MenuCategory.nearest;
+
+  // State Lokal untuk Filter Tab
+  String _selectedCategory = "All";
   int _selectedIndex = 0;
 
-  // Logic Filter Menu
+  // Logic Filter Menu: Menggabungkan hasil search API + filter kategori Lokal
   List<Map<String, dynamic>> get _currentMenu {
     List<dynamic> sourceData = controller.filteredProducts;
 
-    if (_selectedCategory == MenuCategory.favorite) {
-      sourceData = sourceData.where((p) => p['is_favorite'] == true).toList();
+    // Filter Logic Lokal
+    if (_selectedCategory != "All") {
+      sourceData = sourceData.where((p) {
+        String cat = (p['category'] ?? '').toString().toLowerCase();
+        return cat == _selectedCategory.toLowerCase();
+      }).toList();
     }
 
     return sourceData.map((product) {
@@ -77,13 +82,11 @@ class _HomeViewState extends State<HomeView> {
     _setSystemUI();
   }
 
-  // Fungsi untuk mengatur warna status bar dan navigasi bar sistem HP
   void _setSystemUI() {
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.dark,
-        // Membuat Navigasi Bar HP (bawah) jadi putih
         systemNavigationBarColor: Colors.white,
         systemNavigationBarIconBrightness: Brightness.dark,
         systemNavigationBarDividerColor: Colors.transparent,
@@ -93,6 +96,7 @@ class _HomeViewState extends State<HomeView> {
 
   Widget _buildHomeContent() {
     return Obx(() {
+      // Loading indikator
       if (controller.isLoading.value && controller.products.isEmpty) {
         return const Center(
           child: CircularProgressIndicator(color: _kAccentColor),
@@ -117,11 +121,33 @@ class _HomeViewState extends State<HomeView> {
               const SizedBox(height: 5),
               _PromoCard(promoSlides: displaySlides),
               const SizedBox(height: 25),
-              _TwoColumnCategoryTabs(
-                selectedCategory: _selectedCategory,
-                onCategoryTapped: (cat) =>
-                    setState(() => _selectedCategory = cat),
+
+              // === Judul Filter ===
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: const Text(
+                  "Kategori Menu",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
               ),
+              const SizedBox(height: 15),
+
+              // === Widget Filter Kategori (Dinamis dari DB) ===
+              // Menggunakan Obx agar list update otomatis saat data dari controller masuk
+              Obx(
+                () => _CategoryFilterList(
+                  categories: controller.categoryList
+                      .toList(), // Ambil dari Controller
+                  selectedCategory: _selectedCategory,
+                  onCategorySelected: (cat) {
+                    setState(() {
+                      _selectedCategory = cat;
+                    });
+                  },
+                ),
+              ),
+
+              // === List Menu ===
               _HomeListGrid(
                 menu: _currentMenu,
                 onItemTap: (item) =>
@@ -137,7 +163,6 @@ class _HomeViewState extends State<HomeView> {
 
   @override
   Widget build(BuildContext context) {
-    // Memastikan UI sistem tetap putih saat build ulang
     _setSystemUI();
 
     final List<Widget> pages = [
@@ -150,7 +175,6 @@ class _HomeViewState extends State<HomeView> {
     return Scaffold(
       backgroundColor: _kBackgroundColor,
       body: IndexedStack(index: _selectedIndex, children: pages),
-      // Membungkus NavBar dengan Container untuk memberikan Shadow pemisah
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -250,6 +274,63 @@ class _HeaderAndSearch extends StatelessWidget {
   }
 }
 
+class _CategoryFilterList extends StatelessWidget {
+  final List<String> categories;
+  final String selectedCategory;
+  final Function(String) onCategorySelected;
+
+  const _CategoryFilterList({
+    required this.categories,
+    required this.selectedCategory,
+    required this.onCategorySelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Jika data kategori belum masuk (masih kosong/loading)
+    if (categories.isEmpty) {
+      return const SizedBox(height: 40);
+    }
+
+    return SizedBox(
+      height: 40,
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        scrollDirection: Axis.horizontal,
+        itemCount: categories.length,
+        itemBuilder: (context, index) {
+          final cat = categories[index];
+          final isSelected = cat == selectedCategory;
+          return GestureDetector(
+            onTap: () => onCategorySelected(cat),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              margin: const EdgeInsets.only(right: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              decoration: BoxDecoration(
+                color: isSelected ? _kAccentColor : _kSearchBarColor,
+                borderRadius: BorderRadius.circular(30),
+                border: isSelected
+                    ? Border.all(color: _kAccentColor)
+                    : Border.all(color: Colors.transparent),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                cat,
+                style: TextStyle(
+                  color: isSelected ? Colors.white : Colors.black54,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 class _HomeCard extends StatelessWidget {
   final Map<String, dynamic> item;
   final VoidCallback onTap;
@@ -266,7 +347,7 @@ class _HomeCard extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(15),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.05),
@@ -275,21 +356,24 @@ class _HomeCard extends StatelessWidget {
             ),
           ],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            Expanded(
+            SizedBox(
+              width: 110,
+              height: 110,
               child: Stack(
                 children: [
                   ClipRRect(
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(20),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(15),
+                      bottomLeft: Radius.circular(15),
                     ),
                     child: img.startsWith('http')
                         ? Image.network(
                             img,
                             fit: BoxFit.cover,
                             width: double.infinity,
+                            height: double.infinity,
                             errorBuilder: (c, e, s) => Container(
                               color: Colors.grey[200],
                               child: const Icon(Icons.broken_image),
@@ -299,23 +383,24 @@ class _HomeCard extends StatelessWidget {
                             img,
                             fit: BoxFit.cover,
                             width: double.infinity,
+                            height: double.infinity,
                           ),
                   ),
                   Positioned(
                     top: 8,
-                    right: 8,
+                    left: 8,
                     child: GestureDetector(
                       onTap: () => controller.toggleFavorite(item['id']),
                       child: Container(
                         padding: const EdgeInsets.all(5),
                         decoration: const BoxDecoration(
-                          color: Colors.black26,
+                          color: Colors.black38,
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
                           isFav ? Icons.favorite : Icons.favorite_border,
                           color: isFav ? Colors.red : Colors.white,
-                          size: 18,
+                          size: 16,
                         ),
                       ),
                     ),
@@ -323,31 +408,70 @@ class _HomeCard extends StatelessWidget {
                 ],
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item['name'],
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  Text(
-                    item['type'],
-                    style: const TextStyle(color: Colors.grey, fontSize: 11),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    formatRupiah(item['price']),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                      color: _kAccentColor,
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      item['name'],
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 5),
+                    Text(
+                      item['type'],
+                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          formatRupiah(item['price']),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                            color: _kAccentColor,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _kSearchBarColor,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.star,
+                                size: 14,
+                                color: Colors.amber,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                item['rating'].toString(),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -369,23 +493,18 @@ class _HomeListGrid extends StatelessWidget {
         padding: EdgeInsets.symmetric(vertical: 60),
         child: Center(
           child: Text(
-            "Menu tidak ditemukan",
+            "Menu tidak ditemukan untuk kategori ini",
             style: TextStyle(color: Colors.grey),
           ),
         ),
       );
     }
-    return GridView.builder(
-      padding: const EdgeInsets.all(20),
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 15,
-        mainAxisSpacing: 15,
-        childAspectRatio: 0.8,
-      ),
       itemCount: menu.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 15),
       itemBuilder: (ctx, i) =>
           _HomeCard(item: menu[i], onTap: () => onItemTap(menu[i])),
     );
@@ -478,64 +597,6 @@ class _PromoCardState extends State<_PromoCard> {
   }
 }
 
-class _TwoColumnCategoryTabs extends StatelessWidget {
-  final MenuCategory selectedCategory;
-  final Function(MenuCategory) onCategoryTapped;
-  const _TwoColumnCategoryTabs({
-    required this.selectedCategory,
-    required this.onCategoryTapped,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Container(
-        padding: const EdgeInsets.all(5),
-        decoration: BoxDecoration(
-          color: _kSearchBarColor,
-          borderRadius: BorderRadius.circular(15),
-        ),
-        child: Row(
-          children: [
-            _buildTab("Terdekat", MenuCategory.nearest),
-            _buildTab("Favorit", MenuCategory.favorite),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTab(String label, MenuCategory cat) {
-    bool isSel = selectedCategory == cat;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => onCategoryTapped(cat),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 250),
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: isSel ? Colors.white : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: isSel
-                ? [const BoxShadow(color: Colors.black12, blurRadius: 4)]
-                : null,
-          ),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                color: isSel ? _kAccentColor : Colors.grey,
-                fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _CustomBottomNavBar extends StatelessWidget {
   final int selectedIndex;
   final Function(int) onTap;
@@ -551,8 +612,7 @@ class _CustomBottomNavBar extends StatelessWidget {
       unselectedItemColor: Colors.black.withOpacity(0.3),
       showSelectedLabels: true,
       backgroundColor: Colors.white,
-      elevation:
-          0, // Elevation 0 karena bayangan diatur oleh Container pembungkus
+      elevation: 0,
       items: const [
         BottomNavigationBarItem(
           icon: Icon(Ionicons.home_outline),

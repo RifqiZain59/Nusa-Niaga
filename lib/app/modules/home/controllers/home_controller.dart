@@ -7,15 +7,26 @@ class HomeController extends GetxController {
   final ApiService _apiService = ApiService();
 
   var isLoading = true.obs;
-  var banners = <dynamic>[].obs;
+
+  // 'products' menyimpan data master (backup data awal)
   var products = <dynamic>[].obs;
 
-  // Variabel untuk fitur pencarian
-  var filteredProducts = <dynamic>[].obs; // List yang ditampilkan di UI
-  var searchQuery = "".obs; // Menampung input teks dari search bar
+  // 'filteredProducts' adalah data yang aktif ditampilkan (hasil search atau data awal)
+  var filteredProducts = <dynamic>[].obs;
 
+  // List Kategori Dinamis dari Database
+  var categoryList = <String>[].obs;
+
+  var banners = <dynamic>[].obs;
+  var searchQuery = "".obs;
   var address = "Mencari lokasi...".obs;
   var currentBannerIndex = 0.obs;
+
+  // Set untuk menyimpan ID produk yang difavoritkan agar sinkron
+  final Set<int> _favoriteIds = {};
+
+  // ID Customer (Sesuaikan dengan session login nantinya)
+  final int _customerId = 1;
 
   @override
   void onInit() {
@@ -23,43 +34,48 @@ class HomeController extends GetxController {
     fetchHomeData();
     determinePosition();
 
-    // Listener otomatis: Jalankan filter saat searchQuery berubah
-    // Debounce menunggu 300ms setelah user berhenti mengetik agar tidak lag
+    // Listener Search: Tunggu 500ms setelah mengetik, lalu cari ke server
     debounce(
       searchQuery,
-      (_) => filterProducts(),
-      time: const Duration(milliseconds: 300),
+      (callback) => searchProductsServerSide(),
+      time: const Duration(milliseconds: 500),
     );
   }
 
-  // --- FUNGSI AMBIL DATA HOME & FAVORIT ---
+  // --- 1. AMBIL DATA AWAL (BANNER, KATEGORI, PRODUK) ---
   Future<void> fetchHomeData() async {
     try {
       isLoading(true);
 
+      // Request API secara paralel
       var fetchedBanners = await _apiService.getBanners();
-      var fetchedProducts = await _apiService.getProducts();
+      var fetchedCategories = await _apiService
+          .getCategories(); // Ambil Kategori DB
+      var fetchedProducts = await _apiService.getCatalog(); // Ambil Produk Awal
+      var favoriteData = await _apiService.getFavorites(_customerId);
 
-      const int customerId = 1;
-      var favoriteData = await _apiService.getFavorites(customerId);
+      // A. Proses Kategori (Tambahkan "All" di paling depan)
+      List<String> tempCategories = ["All"];
+      for (var cat in fetchedCategories) {
+        tempCategories.add(cat['name'].toString());
+      }
+      categoryList.assignAll(tempCategories);
 
-      Set<int> favoriteIds = {};
+      // B. Proses Favorit
+      _favoriteIds.clear();
       if (favoriteData is List) {
         for (var fav in favoriteData) {
-          favoriteIds.add(fav['product_id']);
+          _favoriteIds.add(fav['product_id']);
         }
       }
 
-      var mappedProducts = fetchedProducts.map((product) {
-        product['is_favorite'] = favoriteIds.contains(product['id']);
-        return product;
-      }).toList();
+      // C. Mapping Status Favorit ke Produk
+      var mappedProducts = _mapFavoritesToProducts(fetchedProducts);
 
+      // D. Simpan ke State
       banners.assignAll(fetchedBanners);
-      products.assignAll(mappedProducts);
-
-      // Inisialisasi awal list hasil filter dengan semua produk
-      filterProducts();
+      products.assignAll(mappedProducts); // Backup
+      filteredProducts.assignAll(mappedProducts); // Tampil
     } catch (e) {
       Get.snackbar("Error", "Gagal memuat data: $e");
     } finally {
@@ -67,40 +83,72 @@ class HomeController extends GetxController {
     }
   }
 
-  // --- LOGIKA PENCARIAN PRODUK ---
-  void filterProducts() {
-    if (searchQuery.value.isEmpty) {
-      // Jika kolom cari kosong, tampilkan semua produk
+  // --- 2. PENCARIAN SERVER-SIDE ---
+  Future<void> searchProductsServerSide() async {
+    String query = searchQuery.value;
+
+    // Jika search kosong, kembalikan ke data awal
+    if (query.isEmpty) {
       filteredProducts.assignAll(products);
-    } else {
-      // Saring produk berdasarkan nama (case-insensitive)
-      filteredProducts.assignAll(
-        products
-            .where(
-              (p) => p['name'].toString().toLowerCase().contains(
-                searchQuery.value.toLowerCase(),
-              ),
-            )
-            .toList(),
-      );
+      return;
+    }
+
+    try {
+      isLoading(true);
+
+      // Panggil API search
+      var searchResults = await _apiService.getCatalog(search: query);
+
+      // Mapping status favorit ke hasil pencarian baru
+      var mappedResults = _mapFavoritesToProducts(searchResults);
+
+      // Update tampilan
+      filteredProducts.assignAll(mappedResults);
+    } catch (e) {
+      print("Error searching: $e");
+      filteredProducts.clear();
+    } finally {
+      isLoading(false);
     }
   }
 
-  // FUNGSI UNTUK TOGGLE FAVORIT
+  // Helper: Mapping status favorit ke list produk apapun
+  List<dynamic> _mapFavoritesToProducts(List<dynamic> rawProducts) {
+    return rawProducts.map((product) {
+      product['is_favorite'] = _favoriteIds.contains(product['id']);
+      return product;
+    }).toList();
+  }
+
+  // --- 3. TOGGLE FAVORIT ---
   Future<void> toggleFavorite(int productId) async {
     try {
-      const int customerId = 1;
-      final result = await _apiService.toggleFavorite(customerId, productId);
+      final result = await _apiService.toggleFavorite(_customerId, productId);
 
       if (result['status'] != 'error') {
-        int index = products.indexWhere((p) => p['id'] == productId);
-        if (index != -1) {
-          // Update status lokal
-          products[index]['is_favorite'] = !products[index]['is_favorite'];
-          products.refresh();
+        // Update di Set Global
+        if (_favoriteIds.contains(productId)) {
+          _favoriteIds.remove(productId);
+        } else {
+          _favoriteIds.add(productId);
+        }
 
-          // REFRESH OTOMATIS: Jalankan ulang filter agar tampilan Grid langsung berubah
-          filterProducts();
+        // Update UI filteredProducts (yang sedang dilihat)
+        int indexFiltered = filteredProducts.indexWhere(
+          (p) => p['id'] == productId,
+        );
+        if (indexFiltered != -1) {
+          filteredProducts[indexFiltered]['is_favorite'] = _favoriteIds
+              .contains(productId);
+          filteredProducts.refresh();
+        }
+
+        // Update UI products (data backup)
+        int indexMaster = products.indexWhere((p) => p['id'] == productId);
+        if (indexMaster != -1) {
+          products[indexMaster]['is_favorite'] = _favoriteIds.contains(
+            productId,
+          );
         }
       }
     } catch (e) {
@@ -108,7 +156,7 @@ class HomeController extends GetxController {
     }
   }
 
-  // --- FUNGSI LOKASI ---
+  // --- 4. LOKASI (GPS) ---
   Future<void> determinePosition() async {
     bool serviceEnabled;
     LocationPermission permission;
