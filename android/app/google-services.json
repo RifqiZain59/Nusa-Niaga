@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "716649970802",
+    "project_id": "nusa-niaga",
+    "storage_bucket": "nusa-niaga.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:716649970802:android:38b580e178550e550b96eb",
+        "android_client_info": {
+          "package_name": "com.example.nusaniaga"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDKtxBKor8UShlFG115eKrg2Fi56EXe7AM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

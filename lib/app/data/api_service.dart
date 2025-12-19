@@ -30,19 +30,26 @@ class ApiService {
   }
 
   // =======================================================================
-  // 1. AUTH (LOGIN & REGISTER)
+  // 1. AUTH PENGGUNA (LOGIN & REGISTER KHUSUS USER)
   // =======================================================================
 
-  Future<Map<String, dynamic>> register(
+  // Endpoint: /api/registerpengguna
+  Future<Map<String, dynamic>> registerPengguna(
     String name,
     String phone,
-    String password,
-  ) async {
+    String password, {
+    String? email, // Opsional: Ditambahkan sesuai backend baru
+  }) async {
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/register'),
+        Uri.parse('$baseUrl/registerpengguna'), // Endpoint DIUBAH
         headers: _headers,
-        body: jsonEncode({'name': name, 'phone': phone, 'password': password}),
+        body: jsonEncode({
+          'name': name,
+          'phone': phone,
+          'password': password,
+          'email': email,
+        }),
       );
       return _processResponse(response);
     } catch (e) {
@@ -50,10 +57,14 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> login(String phone, String password) async {
+  // Endpoint: /api/loginpengguna
+  Future<Map<String, dynamic>> loginPengguna(
+    String phone,
+    String password,
+  ) async {
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/login'),
+        Uri.parse('$baseUrl/loginpengguna'), // Endpoint DIUBAH
         headers: _headers,
         body: jsonEncode({'phone': phone, 'password': password}),
       );
@@ -72,7 +83,6 @@ class ApiService {
     final data = await _getListData('$baseUrl/products');
     return data.map((item) {
       item['image_url'] = getProductImageUrl(item['id']);
-      // Default value jika data tidak dikirim backend (app.py tidak mengirim rating)
       item['rating'] = item['rating'] ?? 0.0;
       return item;
     }).toList();
@@ -84,14 +94,11 @@ class ApiService {
     int customerId = 0,
   }) async {
     try {
-      // Mengirim customer_id untuk mengecek status favorit
       final response = await http.get(
         Uri.parse('$baseUrl/products/$productId?customer_id=$customerId'),
         headers: _headers,
       );
 
-      // Di app.py, detail produk return JSON flat (bukan dalam wrapper 'data')
-      // Tapi kita proses standar dulu
       Map<String, dynamic> data = _processGenericResponse(response);
 
       if (data['status'] == 'success') {
@@ -149,14 +156,13 @@ class ApiService {
   }
 
   // =======================================================================
-  // 4. TRANSAKSI (CHECKOUT & REDEEM) - BARU
+  // 4. TRANSAKSI (CHECKOUT & REDEEM)
   // =======================================================================
 
   // Sesuai route /api/checkout
   Future<Map<String, dynamic>> checkout({
     required int customerId,
-    required List<Map<String, dynamic>>
-    items, // Format: [{'product_id': 1, 'qty': 2}]
+    required List<Map<String, dynamic>> items,
     String? voucherCode,
     String paymentMethod = 'Cash',
   }) async {
@@ -204,53 +210,14 @@ class ApiService {
   }
 
   // =======================================================================
-  // HELPER INTERNAL (PRIVATE)
+  // 5. KATALOG & KATEGORI
   // =======================================================================
-
-  // Helper untuk mengambil list data dari kunci 'data'
-  Future<List<dynamic>> _getListData(String url) async {
-    try {
-      final response = await http.get(Uri.parse(url), headers: _headers);
-
-      if (response.body.trim().startsWith("<")) return []; // Handle error HTML
-
-      if (response.statusCode == 200) {
-        final json = jsonDecode(response.body);
-        // Sesuai format api_response di app.py: {'status': 'success', 'data': [...]}
-        if (json is Map<String, dynamic> && json['status'] == 'success') {
-          return json['data'] ?? [];
-        }
-      }
-      return [];
-    } catch (e) {
-      return [];
-    }
-  }
-
-  // Helper untuk memproses respon standard {status, message, data}
-  Map<String, dynamic> _processResponse(http.Response response) {
-    if (response.body.isEmpty || response.body.trim().startsWith("<")) {
-      return {
-        'status': 'error',
-        'message': 'Server Error (Status: ${response.statusCode})',
-      };
-    }
-
-    try {
-      final json = jsonDecode(response.body);
-      // Backend Python app.py selalu mengembalikan struktur json
-      return json;
-    } catch (e) {
-      return {'status': 'error', 'message': 'Format respon tidak valid'};
-    }
-  }
 
   Future<List<dynamic>> getCategories() async {
     return await _getListData('$baseUrl/categories');
   }
 
   Future<List<dynamic>> getCatalog({String? search, int? categoryId}) async {
-    // 1. Membangun Query String (URL Parameter)
     List<String> queryParams = [];
 
     if (search != null && search.isNotEmpty) {
@@ -265,23 +232,50 @@ class ApiService {
       queryString = '?${queryParams.join('&')}';
     }
 
-    // 2. Panggil API dengan helper _getListData
     final url = '$baseUrl/catalog$queryString';
     final data = await _getListData(url);
 
-    // 3. Mapping data untuk menambahkan URL Gambar
     return data.map((item) {
-      // Pastikan ID produk dikirim ke helper gambar
       item['image_url'] = getProductImageUrl(item['id']);
-
-      // Default rating jika backend belum mengirimkan
       item['rating'] = item['rating'] ?? 0.0;
-
       return item;
     }).toList();
   }
 
-  // Helper khusus untuk GET detail yang kadang strukturnya flat
+  // =======================================================================
+  // HELPER INTERNAL (PRIVATE)
+  // =======================================================================
+
+  Future<List<dynamic>> _getListData(String url) async {
+    try {
+      final response = await http.get(Uri.parse(url), headers: _headers);
+      if (response.body.trim().startsWith("<")) return [];
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        if (json is Map<String, dynamic> && json['status'] == 'success') {
+          return json['data'] ?? [];
+        }
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Map<String, dynamic> _processResponse(http.Response response) {
+    if (response.body.isEmpty || response.body.trim().startsWith("<")) {
+      return {
+        'status': 'error',
+        'message': 'Server Error (Status: ${response.statusCode})',
+      };
+    }
+    try {
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'status': 'error', 'message': 'Format respon tidak valid'};
+    }
+  }
+
   Map<String, dynamic> _processGenericResponse(http.Response response) {
     if (response.statusCode == 200 || response.statusCode == 201) {
       return jsonDecode(response.body);
