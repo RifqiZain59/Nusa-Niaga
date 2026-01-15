@@ -10,6 +10,8 @@ import '../modules/detail_menu/bindings/detail_menu_binding.dart';
 import '../modules/detail_menu/views/detail_menu_view.dart';
 import '../modules/detail_poin/bindings/detail_poin_binding.dart';
 import '../modules/detail_poin/views/detail_poin_view.dart';
+import '../modules/detailpesanansaya/bindings/detailpesanansaya_binding.dart';
+import '../modules/detailpesanansaya/views/detailpesanansaya_view.dart';
 import '../modules/home/bindings/home_binding.dart';
 import '../modules/home/views/home_view.dart';
 import '../modules/keamananakun/bindings/keamananakun_binding.dart';
@@ -20,6 +22,8 @@ import '../modules/lupapassword/bindings/lupapassword_binding.dart';
 import '../modules/lupapassword/views/lupapassword_view.dart';
 import '../modules/payment/bindings/payment_binding.dart';
 import '../modules/payment/views/payment_view.dart';
+import '../modules/pesanansaya/bindings/pesanansaya_binding.dart';
+import '../modules/pesanansaya/views/pesanansaya_view.dart';
 import '../modules/promo/bindings/promo_binding.dart';
 import '../modules/promo/views/promo_view.dart';
 import '../modules/register/bindings/register_binding.dart';
@@ -99,6 +103,16 @@ class AppPages {
       name: _Paths.LUPAPASSWORD,
       page: () => const LupapasswordView(),
       binding: LupapasswordBinding(),
+    ),
+    GetPage(
+      name: _Paths.PESANANSAYA,
+      page: () => const PesanansayaView(),
+      binding: PesanansayaBinding(),
+    ),
+    GetPage(
+      name: _Paths.DETAILPESANANSAYA,
+      page: () => const DetailpesanansayaView(),
+      binding: DetailpesanansayaBinding(),
     ),
   ];
 }

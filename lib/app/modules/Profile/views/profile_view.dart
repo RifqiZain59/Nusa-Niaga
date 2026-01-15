@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // Penting untuk Status Bar
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:ionicons/ionicons.dart';
 
 // Import Controller
 import '../controllers/profile_controller.dart';
+
+// Import Halaman Tujuan
 import '../../keamananakun/views/keamananakun_view.dart';
+import '../../pesanansaya/views/pesanansaya_view.dart';
 
 class ProfileView extends GetView<ProfileController> {
   const ProfileView({super.key});
 
-  // Warna
+  // Warna Konsisten
   static const Color _primaryBlue = Color(0xFF2563EB);
   static const Color _darkBlue = Color(0xFF1E40AF);
   static const Color _backgroundColor = Color(0xFFF8F9FD);
@@ -20,42 +23,41 @@ class ProfileView extends GetView<ProfileController> {
 
   @override
   Widget build(BuildContext context) {
-    // Inject Controller
+    // Inject Controller jika belum ada
     if (!Get.isRegistered<ProfileController>()) {
       Get.put(ProfileController());
     }
 
-    // Mengatur Status Bar menjadi Icon Putih & Transparan backgroundnya
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
-        statusBarColor:
-            Colors.transparent, // Agar warna biru header tembus ke atas
-        statusBarIconBrightness: Brightness.light, // Icon status bar jadi PUTIH
-        statusBarBrightness: Brightness.dark, // Untuk iOS
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light, // Icon putih di atas biru
+        statusBarBrightness: Brightness.dark,
       ),
       child: Scaffold(
         backgroundColor: _backgroundColor,
         body: RefreshIndicator(
           onRefresh: controller.refreshProfile,
           child: SingleChildScrollView(
-            physics: const ClampingScrollPhysics(), // Efek scroll lebih padat
+            physics: const ClampingScrollPhysics(),
             child: Column(
               children: [
-                // 1. HEADER KOTAK (Tanpa Lengkung)
+                // 1. HEADER KOTAK BIRU (RATA TENGAH)
                 _buildSquareHeader(context),
 
-                // 2. BAGIAN STATS (Overlap sedikit ke biru)
+                // 2. KONTEN MENU (Card Stats Overlapping)
                 Transform.translate(
                   offset: const Offset(0, -40),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Column(
                       children: [
+                        // Statistik (Voucher, Poin, Level)
                         _buildStatsCard(),
-
+                        
                         const SizedBox(height: 20),
 
-                        // MENU SECTIONS
+                        // === SECTION 1: PENGATURAN AKUN ===
                         _buildSectionTitle('Pengaturan Akun'),
                         _buildMenuCard(
                           children: [
@@ -63,29 +65,30 @@ class ProfileView extends GetView<ProfileController> {
                               icon: Ionicons.lock_closed_outline,
                               title: 'Keamanan Akun',
                               subtitle: 'Password & Verifikasi',
-                              onTap: () =>
-                                  Get.to(() => const KeamananakunView()),
+                              onTap: () => Get.to(() => const KeamananakunView()),
                             ),
                             _buildDivider(),
                             _buildMenuItem(
                               icon: Ionicons.location_outline,
                               title: 'Alamat Pengiriman',
                               subtitle: 'Atur alamat rumah & kantor',
-                              onTap: () {},
+                              onTap: () {}, // Tambahkan navigasi alamat jika ada
                             ),
                           ],
                         ),
 
                         const SizedBox(height: 24),
 
+                        // === SECTION 2: AKTIVITAS BELANJA ===
                         _buildSectionTitle('Aktivitas Belanja'),
                         _buildMenuCard(
                           children: [
                             _buildMenuItem(
                               icon: Ionicons.bag_check_outline,
                               title: 'Pesanan Saya',
-                              badgeCount: 2,
-                              onTap: () {},
+                              badgeCount: 2, // Bisa dibuat dinamis dari controller
+                              // NAVIGASI KE PESANAN SAYA
+                              onTap: () => Get.to(() => const PesanansayaView()),
                             ),
                             _buildDivider(),
                             _buildMenuItem(
@@ -110,7 +113,7 @@ class ProfileView extends GetView<ProfileController> {
 
                         const SizedBox(height: 30),
 
-                        // LOGOUT BUTTON
+                        // === TOMBOL LOGOUT ===
                         SizedBox(
                           width: double.infinity,
                           height: 55,
@@ -120,9 +123,7 @@ class ProfileView extends GetView<ProfileController> {
                               backgroundColor: const Color(0xFFFEF2F2),
                               foregroundColor: Colors.red,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(
-                                  12,
-                                ), // Radius tombol
+                                borderRadius: BorderRadius.circular(12),
                               ),
                               elevation: 0,
                             ),
@@ -166,14 +167,13 @@ class ProfileView extends GetView<ProfileController> {
   // ============================================================
 
   Widget _buildSquareHeader(BuildContext context) {
-    // Mengambil tinggi status bar HP agar padding dinamis
     final double statusBarHeight = MediaQuery.of(context).padding.top;
 
     return Stack(
       children: [
-        // Background Gradient KOTAK (Tanpa Radius)
+        // Background Gradient
         Container(
-          height: 260 + statusBarHeight, // Tambah tinggi status bar
+          height: 280 + statusBarHeight,
           width: double.infinity,
           decoration: const BoxDecoration(
             gradient: LinearGradient(
@@ -181,126 +181,167 @@ class ProfileView extends GetView<ProfileController> {
               end: Alignment.bottomCenter,
               colors: [_primaryBlue, _darkBlue],
             ),
-            // HAPUS borderRadius disini agar jadi kotak
           ),
         ),
 
-        // Hiasan Pattern Transparan (Optional)
+        // Hiasan Pattern Bulat Transparan
         Positioned(
-          top: -50,
-          right: -50,
+          top: -60,
+          right: -60,
           child: Container(
-            width: 200,
-            height: 200,
+            width: 250,
+            height: 250,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: Colors.white.withOpacity(0.05),
             ),
           ),
         ),
+        Positioned(
+          top: 100,
+          left: -40,
+          child: Container(
+            width: 150,
+            height: 150,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white.withOpacity(0.03),
+            ),
+          ),
+        ),
 
-        // Konten Profil
-        // Kita pakai Padding top sebesar status bar + jarak tambahan
-        // Agar teks tidak kena status bar
+        // KONTEN UTAMA HEADER (RATA TENGAH)
         Padding(
           padding: EdgeInsets.only(
-            top: statusBarHeight + 20, // INI KUNCINYA: Jarak aman dari atas
+            top: statusBarHeight + 30,
             left: 20,
             right: 20,
-            bottom: 60, // Memberi ruang untuk kartu stats di bawah
+            bottom: 70, 
           ),
-          child: Obx(() {
-            if (controller.isLoading.value) {
-              return const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(20.0),
-                  child: CircularProgressIndicator(color: Colors.white),
-                ),
-              );
-            }
-
-            final user = controller.userProfile;
-            final name = user['name'] ?? 'Pengguna Baru';
-            final email = user['email'] ?? 'email@contoh.com';
-            final role = user['role'] ?? 'Member';
-
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // Avatar
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    shape: BoxShape.circle,
+          // SizedBox width infinity memastikan Column bisa di-center secara horizontal penuh
+          child: SizedBox(
+            width: double.infinity, 
+            child: Obx(() {
+              if (controller.isLoading.value) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(20.0),
+                    child: CircularProgressIndicator(color: Colors.white),
                   ),
-                  child: CircleAvatar(
-                    radius: 40,
-                    backgroundColor: Colors.white,
+                );
+              }
+
+              final user = controller.userProfile;
+              final name = user['name'] ?? 'Pengguna Baru';
+              final email = user['email'] ?? 'Belum ada email';
+              final role = user['role'] ?? 'Member';
+
+              return Column(
+                mainAxisAlignment: MainAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center, // KUNCI RATA TENGAH
+                children: [
+                  // 1. AVATAR
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withOpacity(0.2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 20,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
+                    ),
                     child: CircleAvatar(
-                      radius: 38,
-                      backgroundColor: const Color(0xFFF3F4F6),
-                      child: Text(
-                        name.substring(0, 1).toUpperCase(),
-                        style: const TextStyle(
-                          fontSize: 30,
-                          fontWeight: FontWeight.bold,
-                          color: _primaryBlue,
+                      radius: 42,
+                      backgroundColor: Colors.white,
+                      child: CircleAvatar(
+                        radius: 40,
+                        backgroundColor: const Color(0xFFF0F5FF),
+                        child: Text(
+                          name.isNotEmpty ? name.substring(0, 1).toUpperCase() : "U",
+                          style: const TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.w800,
+                            color: _primaryBlue,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 12),
+                  
+                  const SizedBox(height: 16),
 
-                // Nama
-                Text(
-                  name,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 4),
-
-                // Email
-                Text(
-                  email,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.white.withOpacity(0.8),
-                  ),
-                ),
-
-                const SizedBox(height: 10),
-                // Role Badge
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(
-                      8,
-                    ), // Radius kecil untuk badge
-                  ),
-                  child: Text(
-                    role.toUpperCase(),
+                  // 2. NAMA PENGGUNA
+                  Text(
+                    name,
+                    textAlign: TextAlign.center,
                     style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
                       color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1,
+                      letterSpacing: 0.5,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+
+                  const SizedBox(height: 4),
+
+                  // 3. EMAIL
+                  Text(
+                    email,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                      color: Colors.white.withOpacity(0.85),
                     ),
                   ),
-                ),
-              ],
-            );
-          }),
+
+                  const SizedBox(height: 16),
+
+                  // 4. ROLE BADGE
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min, // Agar lebar sesuai konten
+                      children: [
+                        const Icon(
+                          Ionicons.shield_checkmark, 
+                          color: Colors.white, 
+                          size: 14
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          role.toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            }),
+          ),
         ),
       ],
     );
@@ -311,12 +352,12 @@ class ProfileView extends GetView<ProfileController> {
       padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
       decoration: BoxDecoration(
         color: _cardColor,
-        borderRadius: BorderRadius.circular(12), // Lebih kotak sedikit
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF2563EB).withOpacity(0.1),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
+            color: const Color(0xFF2563EB).withOpacity(0.08),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
           ),
         ],
       ),
@@ -374,18 +415,16 @@ class ProfileView extends GetView<ProfileController> {
     return Container(
       decoration: BoxDecoration(
         color: _cardColor,
-        borderRadius: BorderRadius.circular(
-          12,
-        ), // Konsisten kotak melengkung sedikit
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withOpacity(0.02),
             blurRadius: 10,
-            offset: const Offset(0, 2),
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Column(children: children),
+      child: Column(children: children)
     );
   }
 
@@ -400,7 +439,7 @@ class ProfileView extends GetView<ProfileController> {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Row(
@@ -410,7 +449,7 @@ class ProfileView extends GetView<ProfileController> {
                 height: 40,
                 decoration: BoxDecoration(
                   color: const Color(0xFFF3F4F6),
-                  borderRadius: BorderRadius.circular(8), // Icon kotak
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(icon, color: _primaryBlue, size: 20),
               ),

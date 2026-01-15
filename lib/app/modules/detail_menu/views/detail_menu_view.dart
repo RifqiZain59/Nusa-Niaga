@@ -25,8 +25,22 @@ class DetailMenuView extends GetView<DetailMenuController> {
     // State untuk Rating
     final RxInt userRatingInput = 5.obs;
 
-    if (!Get.isRegistered<DetailMenuController>()) {
-      Get.put(DetailMenuController());
+    // --- PERBAIKAN: INISIALISASI CONTROLLER & DATA ---
+    // Pastikan controller terdaftar
+    final controller = Get.put(DetailMenuController());
+
+    // Force load data dari arguments jika controller masih kosong
+    // Ini menjamin data langsung muncul tanpa menunggu API loading
+    if (Get.arguments != null && controller.product.isEmpty) {
+      if (Get.arguments is Map<String, dynamic>) {
+        controller.product.assignAll(Get.arguments);
+        // Panggil inisialisasi harga agar tidak Rp 0 di awal
+        if (controller.totalPrice.value == 0) {
+          double price =
+              double.tryParse(controller.product['price'].toString()) ?? 0.0;
+          controller.totalPrice.value = price;
+        }
+      }
     }
 
     // --- SYSTEM UI NAV BAR PUTIH ---
@@ -40,6 +54,7 @@ class DetailMenuView extends GetView<DetailMenuController> {
       child: Scaffold(
         backgroundColor: kBackgroundColor,
         body: Obx(() {
+          // Hanya tampilkan loading jika benar-benar kosong (tidak ada cache argumen)
           if (controller.isLoading.value && controller.product.isEmpty) {
             return const Center(
               child: CircularProgressIndicator(color: kPrimaryColor),
@@ -47,13 +62,23 @@ class DetailMenuView extends GetView<DetailMenuController> {
           }
 
           final product = controller.product;
-          final String img = product['image_url'] ?? '';
+
+          // --- FIX: SUPPORT DUA TIPE KEY (DARI HOME & DARI API) ---
+          // Home kirim 'image', API kirim 'image_url'
+          final String img = product['image_url'] ?? product['image'] ?? '';
+
+          // Home kirim 'type', API kirim 'category'
+          final String category =
+              product['category'] ?? product['type'] ?? 'Menu';
 
           // Logika Cek Deskripsi
           String description = product['description'] ?? '';
-          if (description.trim().isEmpty) {
+          if (description.trim().isEmpty || description == 'null') {
             description = "Belum ada deskripsi detail untuk menu ini.";
           }
+
+          // Hitung Rating (Default 4.5 jika null)
+          String ratingVal = product['rating']?.toString() ?? '4.5';
 
           return Stack(
             children: [
@@ -171,7 +196,7 @@ class DetailMenuView extends GetView<DetailMenuController> {
                                   ),
                                   const SizedBox(height: 5),
                                   Text(
-                                    product['category'] ?? 'General',
+                                    category, // Menggunakan variabel fallback
                                     style: TextStyle(
                                       fontSize: 14,
                                       color: Colors.grey[500],
@@ -199,7 +224,7 @@ class DetailMenuView extends GetView<DetailMenuController> {
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
-                                    product['rating']?.toString() ?? '4.5',
+                                    ratingVal,
                                     style: const TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.bold,
@@ -248,21 +273,19 @@ class DetailMenuView extends GetView<DetailMenuController> {
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: Colors.grey.shade200),
                           ),
-                          // Menampilkan deskripsi atau placeholder jika kosong
                           child: Text(
                             description,
                             style: TextStyle(
                               fontSize: 14,
-                              // Ubah warna text jadi abu-abu jika itu text default/kosong
                               color:
-                                  (product['description'] == null ||
-                                      product['description'] == '')
+                                  (description ==
+                                      "Belum ada deskripsi detail untuk menu ini.")
                                   ? Colors.grey[400]
                                   : Colors.grey[700],
                               height: 1.6,
                               fontStyle:
-                                  (product['description'] == null ||
-                                      product['description'] == '')
+                                  (description ==
+                                      "Belum ada deskripsi detail untuk menu ini.")
                                   ? FontStyle.italic
                                   : FontStyle.normal,
                             ),

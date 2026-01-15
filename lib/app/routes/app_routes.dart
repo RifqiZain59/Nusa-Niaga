@@ -16,6 +16,8 @@ abstract class Routes {
   static const VERIFIKASI = _Paths.VERIFIKASI;
   static const KEAMANANAKUN = _Paths.KEAMANANAKUN;
   static const LUPAPASSWORD = _Paths.LUPAPASSWORD;
+  static const PESANANSAYA = _Paths.PESANANSAYA;
+  static const DETAILPESANANSAYA = _Paths.DETAILPESANANSAYA;
 }
 
 abstract class _Paths {
@@ -33,4 +35,6 @@ abstract class _Paths {
   static const VERIFIKASI = '/verifikasi';
   static const KEAMANANAKUN = '/keamananakun';
   static const LUPAPASSWORD = '/lupapassword';
+  static const PESANANSAYA = '/pesanansaya';
+  static const DETAILPESANANSAYA = '/detailpesanansaya';
 }

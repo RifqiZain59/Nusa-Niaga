@@ -1,469 +1,470 @@
-// File: ../views/checkout_view.dart
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:ionicons/ionicons.dart';
 import '../controllers/checkout_controller.dart';
 
 class CheckoutView extends GetView<CheckoutController> {
   const CheckoutView({super.key});
 
-  // Widget Input Teks Pelanggan
-  Widget _buildCustomerInput() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 8.0),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.black, width: 1.0),
+  static const Color _primaryColor = Color(0xFF2563EB);
+  static const Color _bgColor = Color(0xFFF5F7FA);
+  static const Color _cardColor = Colors.white;
+  static const Color _textDark = Color(0xFF1F2937);
+  static const Color _textGrey = Color(0xFF6B7280);
+
+  String formatRupiah(double number) {
+    String str = number.toInt().toString();
+    RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
+    return "Rp ${str.replaceAllMapped(reg, (Match m) => '${m[1]}.')}";
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!Get.isRegistered<CheckoutController>()) {
+      Get.put(CheckoutController());
+    }
+
+    return Scaffold(
+      backgroundColor: _bgColor,
+      appBar: AppBar(
+        backgroundColor: _cardColor,
+        elevation: 0.5,
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Ionicons.arrow_back, color: _textDark),
+          onPressed: () => Get.back(),
+        ),
+        title: const Text(
+          'Konfirmasi Pesanan',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+            color: _textDark,
+          ),
+        ),
       ),
-      child: Row(
+      body: Column(
         children: [
-          const Icon(Icons.person_outline, color: Color(0xFF1E2B4B)),
-          const SizedBox(width: 16),
           Expanded(
-            child: TextField(
-              // 💡 Terapkan controller
-              controller: controller.customerNameController,
-              enabled: true,
-              decoration: const InputDecoration(
-                hintText: 'Customers Name',
-                border: InputBorder.none,
-                disabledBorder: InputBorder.none,
-                isDense: true,
-                contentPadding: EdgeInsets.zero,
-                hintStyle: TextStyle(color: Colors.grey),
-              ),
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.normal,
-                color: Colors.black,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Widget Pilih Meja/Lokasi
-  Widget _buildTableSelect() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 8.0),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.black, width: 1.0),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.location_on_outlined, color: Color(0xFF1E2B4B)),
-          const SizedBox(width: 16),
-          Expanded(
-            child: TextField(
-              // 💡 Terapkan controller
-              controller: controller.lokasiPemesananController,
-              enabled: true,
-              decoration: const InputDecoration(
-                hintText: 'Lokasi Pemesanan',
-                border: InputBorder.none,
-                disabledBorder: InputBorder.none,
-                isDense: true,
-                contentPadding: EdgeInsets.zero,
-                hintStyle: TextStyle(color: Colors.grey),
-              ),
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.normal,
-                color: Colors.black,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Widget Input Promo Code
-  Widget _buildPromoCodeInput() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 8.0),
-      margin: const EdgeInsets.only(bottom: 20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200, width: 1),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE8F0FE),
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.grey.shade200),
-            ),
-            child: const Icon(
-              Icons.percent_outlined,
-              color: Color(0xFF1E2B4B),
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Promo code',
-                border: InputBorder.none,
-                isDense: true,
-                contentPadding: EdgeInsets.zero,
-              ),
-              style: TextStyle(fontSize: 16, color: Colors.black),
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade200,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Text(
-              'Apply',
-              style: TextStyle(
-                color: Colors.grey,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Widget untuk Kartu Item Pesanan
-  Widget _buildOrderItemCard({
-    required String imagePath,
-    required String title,
-    required String description,
-    required String price,
-    required int quantity,
-  }) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 0),
-      elevation: 0,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8.0),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8.0),
-              child: Image.asset(
-                imagePath,
-                width: 80,
-                height: 80,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  width: 80,
-                  height: 80,
-                  color: Colors.grey.shade200,
-                  child: const Icon(Icons.image, color: Colors.grey),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20.0),
+              physics: const BouncingScrollPhysics(),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                  // 1. INFO PEMESAN
+                  _buildSectionTitle("Informasi Pemesan"),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: _boxDecoration(),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: _primaryColor.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Ionicons.person,
+                            color: _primaryColor,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                "Nama Pemesan",
+                                style: TextStyle(
+                                  color: _textGrey,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Obx(
+                                () => Text(
+                                  controller.userName.value,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                    color: _textDark,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(
+                          Ionicons.checkmark_circle,
+                          color: Colors.green,
+                          size: 20,
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    description,
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        price,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
-                          color: Color(0xFF1E2B4B),
+
+                  const SizedBox(height: 20),
+
+                  // 2. INPUT LOKASI
+                  _buildSectionTitle("Lokasi Pengantaran"),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
+                    ),
+                    decoration: _boxDecoration(),
+                    child: Row(
+                      children: [
+                        const Icon(Ionicons.location_outline, color: _textGrey),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: TextField(
+                            controller: controller.lokasiPemesananController,
+                            decoration: const InputDecoration(
+                              hintText: 'Nomor Meja / Area (Cth: Meja 5)',
+                              border: InputBorder.none,
+                              hintStyle: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 14,
+                              ),
+                            ),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: _textDark,
+                            ),
+                          ),
                         ),
-                      ),
-                      _buildQuantityControl(quantity),
-                    ],
+                      ],
+                    ),
                   ),
+
+                  const SizedBox(height: 20),
+
+                  // 3. ITEM PRODUK
+                  _buildSectionTitle("Detail Item"),
+                  Obx(() {
+                    if (controller.orderData.isEmpty) return const SizedBox();
+
+                    String img =
+                        controller.orderData['image_url'] ??
+                        controller.orderData['image'] ??
+                        '';
+                    String name = controller.orderData['name'] ?? '-';
+                    String cat =
+                        controller.orderData['category'] ??
+                        controller.orderData['type'] ??
+                        'Menu';
+
+                    return Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: _boxDecoration(),
+                      child: Row(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: img.startsWith('http')
+                                ? Image.network(
+                                    img,
+                                    width: 70,
+                                    height: 70,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (c, e, s) => Container(
+                                      width: 70,
+                                      height: 70,
+                                      color: Colors.grey[200],
+                                    ),
+                                  )
+                                : Image.asset(
+                                    img,
+                                    width: 70,
+                                    height: 70,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (c, e, s) => Container(
+                                      width: 70,
+                                      height: 70,
+                                      color: Colors.grey[200],
+                                    ),
+                                  ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  name,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                    color: _textDark,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  cat,
+                                  style: const TextStyle(
+                                    color: _textGrey,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  "${controller.quantity.value} x ${formatRupiah(controller.itemPrice.value)}",
+                                  style: const TextStyle(
+                                    color: _primaryColor,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+
+                  const SizedBox(height: 20),
+
+                  // 4. VOUCHER INPUT (DIPERBAIKI: REACTIVE COLOR)
+                  _buildSectionTitle("Promo & Voucher"),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    decoration: _boxDecoration(),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Ionicons.ticket_outline,
+                          color: Colors.orange,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextField(
+                            controller: controller.promoController,
+                            // Enable paste toolbar
+                            toolbarOptions: const ToolbarOptions(
+                              paste: true,
+                              cut: true,
+                              copy: true,
+                              selectAll: true,
+                            ),
+                            decoration: const InputDecoration(
+                              hintText: "Masukkan Kode Voucher",
+                              border: InputBorder.none,
+                              hintStyle: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey,
+                              ),
+                            ),
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        // TOMBOL PAKAI (HIJAU JIKA ISI, ABU JIKA KOSONG)
+                        Obx(() {
+                          bool isEmpty = controller.isPromoEmpty.value;
+                          return GestureDetector(
+                            onTap: isEmpty
+                                ? null
+                                : () => controller.applyVoucher(),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 300),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isEmpty
+                                    ? Colors.grey.shade200
+                                    : Colors.green, // Logic Warna
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                "Pakai",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                  color: isEmpty
+                                      ? Colors.grey.shade600
+                                      : Colors.white, // Logic Warna Teks
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // 5. RINGKASAN PEMBAYARAN
+                  _buildSectionTitle("Ringkasan Pembayaran"),
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: _boxDecoration(),
+                    child: Obx(
+                      () => Column(
+                        children: [
+                          _buildSummaryRow(
+                            "Subtotal",
+                            formatRupiah(controller.subTotal.value),
+                          ),
+                          const SizedBox(height: 12),
+
+                          if (controller.discount.value > 0) ...[
+                            _buildSummaryRow(
+                              "Diskon Voucher",
+                              "- ${formatRupiah(controller.discount.value)}",
+                              isGreen: true,
+                            ),
+                            const SizedBox(height: 12),
+                          ],
+
+                          _buildSummaryRow("Pajak (0%)", "Rp 0"),
+
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            child: Divider(height: 1, color: Colors.grey),
+                          ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                "Total Pembayaran",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              Text(
+                                formatRupiah(controller.grandTotal.value),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                  color: _primaryColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 100),
                 ],
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
+          ),
 
-  // Widget Kontrol Kuantitas (Tidak Berubah)
-  Widget _buildQuantityControl(int quantity) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildQuantityButton(
-            icon: Icons.remove,
-            isMinus: true,
-            onPressed: () {},
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12.0),
-            child: Text(
-              quantity.toString(),
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                color: Color(0xFF1E2B4B),
+          // BOTTOM BAR (STICKY)
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 20,
+                  offset: const Offset(0, -5),
+                ),
+              ],
             ),
-          ),
-          _buildQuantityButton(
-            icon: Icons.add,
-            isMinus: false,
-            onPressed: () {},
+            child: SafeArea(
+              child: Obx(() {
+                final isEnabled = controller.isContinueEnabled.value;
+                return SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: isEnabled ? controller.goToPayment : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isEnabled
+                          ? _primaryColor
+                          : Colors.grey[300],
+                      foregroundColor: isEnabled
+                          ? Colors.white
+                          : Colors.grey[500],
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      elevation: isEnabled ? 5 : 0,
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          "Lanjut Pembayaran",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(width: 8),
+                        Icon(Ionicons.arrow_forward, size: 20),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+            ),
           ),
         ],
       ),
     );
   }
 
-  // Widget Tombol Kuantitas (Tidak Berubah)
-  Widget _buildQuantityButton({
-    required IconData icon,
-    required bool isMinus,
-    required VoidCallback onPressed,
-  }) {
-    return InkWell(
-      onTap: onPressed,
-      child: Container(
-        width: 24,
-        height: 24,
-        decoration: BoxDecoration(
-          color: isMinus ? Colors.grey.shade300 : const Color(0xFF1E2B4B),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(
-          icon,
-          size: 16,
-          color: isMinus ? Colors.black : Colors.white,
-        ),
-      ),
-    );
-  }
+  // --- WIDGET HELPERS ---
 
-  // Widget Ringkasan Pembayaran
-  Widget _buildPaymentSummary() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Payment Summary',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF1E2B4B),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Subtotal',
-              style: TextStyle(fontSize: 16, color: Colors.grey.shade700),
-            ),
-            const Text(
-              '\$9.50',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Tax',
-              style: TextStyle(fontSize: 16, color: Colors.grey.shade700),
-            ),
-            const Text(
-              '\$0.50',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-            ),
-          ],
-        ),
-        const Divider(height: 30, thickness: 1, color: Colors.grey),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Grand Total',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const Text(
-              '\$10.00',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1E2B4B),
-              ),
-            ),
-          ],
+  BoxDecoration _boxDecoration() {
+    return BoxDecoration(
+      color: _cardColor,
+      borderRadius: BorderRadius.circular(16),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.03),
+          blurRadius: 10,
+          offset: const Offset(0, 4),
         ),
       ],
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    const Color backgroundColor = Colors.white;
-
-    // Pastikan controller tersedia. (Sebaiknya gunakan Get.put di Binding)
-    if (!Get.isRegistered<CheckoutController>()) {
-      Get.put(CheckoutController());
-    }
-
-    // Ambil controller setelah dipastikan ada
-    final ctrl = Get.find<CheckoutController>();
-
-    return Scaffold(
-      backgroundColor: backgroundColor,
-      appBar: AppBar(
-        backgroundColor: backgroundColor,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF1E2B4B)),
-          onPressed: () {
-            Get.back();
-          },
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 12),
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.bold,
+          color: _textDark,
         ),
-        title: const Text(
-          'Order #8726AB',
+      ),
+    );
+  }
+
+  Widget _buildSummaryRow(String label, String value, {bool isGreen = false}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: const TextStyle(color: _textGrey, fontSize: 14)),
+        Text(
+          value,
           style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-            color: Color(0xFF1E2B4B),
+            color: isGreen ? Colors.green : _textDark,
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
           ),
         ),
-        centerTitle: true,
-      ),
-      body: SafeArea(
-        child: Stack(
-          children: [
-            ListView(
-              padding: const EdgeInsets.all(20.0),
-              children: [
-                _buildCustomerInput(),
-                const SizedBox(height: 12),
-                _buildTableSelect(),
-                const SizedBox(height: 30),
-                const Text(
-                  'Orders',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1E2B4B),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _buildOrderItemCard(
-                  imagePath: 'assets/whole_wheat_loaf.png',
-                  title: 'Whole Wheat Loaf',
-                  description: 'Nutritious, fiber-rich, and wholesome loaves.',
-                  price: '\$4.50',
-                  quantity: 1,
-                ),
-                _buildOrderItemCard(
-                  imagePath: 'assets/frosted_bliss_donut.png',
-                  title: 'Frosted Bliss Donut',
-                  description:
-                      'Soft blue donut with vibrant pink sprinkles delight.',
-                  price: '\$5.50',
-                  quantity: 1,
-                ),
-                const SizedBox(height: 30),
-                _buildPromoCodeInput(),
-                _buildPaymentSummary(),
-                const SizedBox(height: 120),
-              ],
-            ),
-
-            // 👇 Tombol "Continue" dengan Validasi Kondisional
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: Container(
-                padding: const EdgeInsets.all(20.0),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 10,
-                      offset: const Offset(0, -5),
-                    ),
-                  ],
-                ),
-                child: Obx(() {
-                  // 👈 Obx untuk bereaksi terhadap perubahan state
-                  final isEnabled = ctrl.isContinueEnabled.value;
-                  final buttonColor = isEnabled
-                      ? const Color(0xFF1E2B4B)
-                      : Colors.grey; // Warna non-aktif
-
-                  return SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton(
-                      // onPressed: Panggil goToPayment jika diaktifkan, jika tidak, null
-                      onPressed: isEnabled ? ctrl.goToPayment : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: buttonColor, // Gunakan warna dinamis
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 0,
-                      ),
-                      child: const Text(
-                        'Continue',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  );
-                }),
-              ),
-            ),
-          ],
-        ),
-      ),
+      ],
     );
   }
 }

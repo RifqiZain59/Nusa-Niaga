@@ -1,413 +1,324 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:nusaniaga/app/modules/home/views/home_view.dart';
-
-// --- PERUBAHAN: Menambahkan import untuk HomeView ---
-// Asumsi path HomeView berada di '../home/views/home_view.dart'
-// Harap sesuaikan path ini jika struktur file Anda berbeda.
-// import 'package:namaproyek/app/modules/home/views/home_view.dart'; // Jika menggunakan path absolut
-
+import 'package:ionicons/ionicons.dart';
 import '../controllers/payment_controller.dart';
 
 class PaymentView extends GetView<PaymentController> {
   const PaymentView({super.key});
 
-  // Fungsi baru untuk menampilkan kotak dialog konfirmasi (floating box)
-  void _showConfirmationDialog(String parentMethod, String selectedOption) {
-    Get.back(); // Pastikan modal sebelumnya tertutup
+  // Warna Konsisten
+  static const Color _primaryColor = Color(0xFF2563EB);
+  static const Color _bgColor = Color(0xFFF5F7FA);
+  static const Color _cardColor = Colors.white;
+  static const Color _textDark = Color(0xFF1F2937);
 
-    // Observable untuk melacak status upload gambar (simulasi)
-    RxString uploadedFileName = ''.obs;
-
-    // Konten yang berubah berdasarkan pilihan
-    String dialogTitle;
-    Widget dialogContent;
-
-    // Widget untuk input Upload Gambar yang akan digunakan di kedua opsi
-    Widget uploadWidget = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 15),
-        const Text(
-          'Upload Bukti Pembayaran:',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 5),
-        Obx(
-          () => Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    // SIMULASI: Dalam aplikasi nyata, ini akan memanggil image_picker/file_picker
-                    if (uploadedFileName.value.isEmpty) {
-                      uploadedFileName.value =
-                          'bukti_${DateTime.now().millisecondsSinceEpoch}.jpg';
-                      Get.snackbar(
-                        'Upload Berhasil',
-                        'File berhasil dimuat.',
-                        snackPosition: SnackPosition.BOTTOM,
-                      );
-                    } else {
-                      uploadedFileName.value = '';
-                    }
-                  },
-                  icon: Icon(
-                    uploadedFileName.value.isEmpty
-                        ? Icons.upload_file
-                        : Icons.refresh,
-                    color: Colors.white,
-                  ),
-                  label: Text(
-                    uploadedFileName.value.isEmpty
-                        ? 'Pilih Gambar Bukti'
-                        : 'Ubah Gambar',
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: uploadedFileName.value.isEmpty
-                        ? Colors.blue
-                        : Colors.orange,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        Obx(
-          () => uploadedFileName.value.isNotEmpty
-              ? Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
-                  child: Text(
-                    'File Terpilih: ${uploadedFileName.value}',
-                    style: const TextStyle(fontSize: 12, color: Colors.green),
-                  ),
-                )
-              : const SizedBox.shrink(),
-        ),
-      ],
-    );
-
-    if (selectedOption == 'Transfer Bank') {
-      dialogTitle = 'Detail Transfer Bank ($parentMethod)';
-      dialogContent = Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Lakukan transfer ke rekening berikut:',
-            style: TextStyle(color: Colors.black54),
-          ),
-          const SizedBox(height: 10),
-          // Placeholder Nomor Rekening
-          const Text(
-            'Nomor Rekening Tujuan:',
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-          const SelectableText(
-            '1234 5678 9012 (BCA)',
-            style: TextStyle(color: Colors.blue, fontSize: 16),
-          ),
-          const SizedBox(height: 5),
-          // Placeholder Nama
-          const Text(
-            'Nama Penerima:',
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-          const Text(
-            'PT. Mitra Digital',
-            style: TextStyle(color: Colors.black),
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            'Jumlah yang harus dibayar: Rp XXX.XXX',
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-          uploadWidget, // Masukkan widget upload
-        ],
-      );
-    } else {
-      // Opsi QRIS
-      dialogTitle = 'QR Code ($parentMethod)';
-      dialogContent = Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          const Text(
-            'Silakan pindai QR Code di bawah untuk melanjutkan pembayaran.',
-            style: TextStyle(color: Colors.black54),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 15),
-          // Placeholder untuk QR Code
-          Container(
-            width: 150,
-            height: 150,
-            color: Colors.grey.shade200,
-            child: const Center(
-              child: Icon(Icons.qr_code_2, size: 80, color: Colors.black54),
-            ),
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            'Jumlah Pembayaran: Rp XXX.XXX',
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-          uploadWidget, // Masukkan widget upload
-        ],
-      );
-    }
-
-    Get.defaultDialog(
-      title: dialogTitle,
-      content: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10.0),
-        child: dialogContent,
-      ),
-      backgroundColor: Colors.white,
-      titleStyle: const TextStyle(
-        color: Colors.black,
-        fontWeight: FontWeight.bold,
-        fontSize: 18,
-      ),
-      radius: 15,
-      // Tombol Aksi
-      actions: [
-        TextButton(
-          onPressed: () {
-            // Aksi nyata: Kirim data ke server
-            if (uploadedFileName.value.isEmpty) {
-              Get.snackbar(
-                'Perhatian',
-                'Harap upload bukti pembayaran terlebih dahulu.',
-                snackPosition: SnackPosition.BOTTOM,
-                backgroundColor: Colors.red.shade100,
-              );
-            } else {
-              // --- PERUBAHAN: Pindah ke HomeView dan hapus stack navigasi ---
-              Get.offAll(() => const HomeView());
-              Get.snackbar(
-                'Berhasil',
-                'Pembayaran sedang diproses! Anda dialihkan ke halaman utama.',
-                snackPosition: SnackPosition.BOTTOM,
-                backgroundColor: Colors.green.shade100,
-              );
-            }
-          },
-          child: const Text(
-            'Konfirmasi Pembayaran',
-            style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
-          ),
-        ),
-        TextButton(
-          onPressed: () => Get.back(),
-          child: const Text('Batal', style: TextStyle(color: Colors.red)),
-        ),
-      ],
-    );
-  }
-
-  // Fungsi untuk menampilkan kotak dialog pilihan utama (modal bottom sheet)
-  void _showPaymentOptions(BuildContext context, String methodName) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (BuildContext bc) {
-        return SafeArea(
-          child: Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(25.0),
-                topRight: Radius.circular(25.0),
-              ),
-            ),
-            padding: const EdgeInsets.all(20.0),
-            child: Wrap(
-              children: <Widget>[
-                // Judul Modal
-                Center(
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: 15.0),
-                    child: Text(
-                      'Pilih Metode Pembayaran $methodName',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-                const Divider(),
-
-                // Opsi 1: Transfer
-                ListTile(
-                  leading: const Icon(Icons.compare_arrows),
-                  title: const Text('Transfer Bank'),
-                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                  onTap: () {
-                    _showConfirmationDialog(methodName, 'Transfer Bank');
-                  },
-                ),
-
-                // Opsi 2: QRIS
-                ListTile(
-                  leading: const Icon(Icons.qr_code_2),
-                  title: const Text('QRIS (Scan QR)'),
-                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                  onTap: () {
-                    _showConfirmationDialog(methodName, 'QRIS');
-                  },
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
+  // Helper Format Rupiah
+  String formatRupiah(double number) {
+    String str = number.toInt().toString();
+    RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
+    return "Rp ${str.replaceAllMapped(reg, (Match m) => '${m[1]}.')}";
   }
 
   @override
   Widget build(BuildContext context) {
+    if (!Get.isRegistered<PaymentController>()) {
+      Get.put(PaymentController());
+    }
+
     return Scaffold(
+      backgroundColor: _bgColor,
       appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Get.back(),
-        ),
         title: const Text(
-          'Payment Method',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.normal),
+          'Pembayaran',
+          style: TextStyle(color: _textDark, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
-        actions: const [],
-      ),
-      backgroundColor: Colors.white,
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 15.0),
-        child: Column(
-          children: [
-            _buildPaymentMethodItem(
-              context: context,
-              assetPath: 'assets/icon/gopay.png',
-              title: 'GoPay',
-              subtitle: '',
-            ),
-            const SizedBox(height: 10),
-            _buildPaymentMethodItem(
-              context: context,
-              assetPath: 'assets/icon/shopeepay.png',
-              title: 'ShopeePay',
-              subtitle: '',
-            ),
-            const SizedBox(height: 15),
-            _buildAddPaymentMethod(),
-          ],
+        backgroundColor: _cardColor,
+        elevation: 0.5,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: _textDark),
+          onPressed: () => Get.back(),
         ),
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 1. Total Tagihan Card
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [_primaryColor, Color(0xFF1E40AF)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _primaryColor.withOpacity(0.3),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          "Total Tagihan",
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.8),
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Obx(
+                          () => Text(
+                            formatRupiah(controller.grandTotal.value),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 32,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Obx(
+                            () => Text(
+                              "Order ID: ${controller.orderId.value}",
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 30),
+                  const Text(
+                    "Pilih Metode Pembayaran",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: _textDark,
+                    ),
+                  ),
+                  const SizedBox(height: 15),
+
+                  // 2. E-Wallet Section
+                  _buildPaymentGroup("E-Wallet", [
+                    _paymentOption(
+                      "Gopay",
+                      "assets/icon/gopay.png",
+                      isImage: true,
+                    ),
+                    _paymentOption(
+                      "ShopeePay",
+                      "assets/icon/shopeepay.png",
+                      isImage: true,
+                    ),
+                  ]),
+
+                  const SizedBox(height: 20),
+
+                  // 3. Bank Transfer Section
+                  _buildPaymentGroup("Transfer & Lainnya", [
+                    _paymentOption(
+                      "BCA Virtual Account",
+                      "",
+                      icon: Ionicons.card_outline,
+                    ),
+                    _paymentOption("QRIS", "", icon: Ionicons.qr_code_outline),
+                    _paymentOption(
+                      "Tunai / Cash",
+                      "",
+                      icon: Ionicons.cash_outline,
+                    ),
+                  ]),
+
+                  const SizedBox(height: 100),
+                ],
+              ),
+            ),
+          ),
+
+          // BOTTOM BAR
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 20,
+                  offset: const Offset(0, -5),
+                ),
+              ],
+            ),
+            child: SafeArea(
+              child: Obx(
+                () => SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: controller.isLoading.value
+                        ? null
+                        : () => controller.processPayment(),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _primaryColor,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      elevation: 5,
+                      shadowColor: _primaryColor.withOpacity(0.4),
+                    ),
+                    child: controller.isLoading.value
+                        ? const SizedBox(
+                            height: 24,
+                            width: 24,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Ionicons.lock_closed,
+                                size: 20,
+                                color: Colors.white,
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                "Bayar ${formatRupiah(controller.grandTotal.value)}",
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  // Widget pembantu untuk membangun setiap item metode pembayaran
-  Widget _buildPaymentMethodItem({
-    required BuildContext context,
-    required String assetPath,
-    Color iconBgColor = Colors.transparent,
-    required String title,
-    required String subtitle,
-    bool showWarning = false,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15.0),
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 10.0,
-          vertical: 5.0,
-        ),
-        leading: Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.black, width: 1.0),
-          ),
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(5.0),
-              child: Image.asset(assetPath, fit: BoxFit.contain),
-            ),
-          ),
-        ),
-        title: Text(
+  // --- WIDGET HELPERS ---
+
+  Widget _buildPaymentGroup(String title, List<Widget> children) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
           title,
           style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: (subtitle.isEmpty) ? 17 : 16,
+            color: Colors.grey[600],
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
           ),
         ),
-        subtitle: subtitle.isNotEmpty
-            ? Text(
-                subtitle,
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
-              )
-            : null,
-        trailing: showWarning
-            ? const Icon(Icons.info_outline, color: Colors.grey, size: 20)
-            : const Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 16),
-        onTap: () {
-          _showPaymentOptions(context, title);
-        },
-      ),
+        const SizedBox(height: 10),
+        Column(children: children),
+      ],
     );
   }
 
-  // Widget pembantu untuk membangun item 'Add Payment Method'
-  Widget _buildAddPaymentMethod() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15.0),
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 10.0,
-          vertical: 5.0,
-        ),
-        leading: Container(
-          width: 48,
-          height: 48,
+  Widget _paymentOption(
+    String name,
+    String asset, {
+    bool isImage = false,
+    IconData? icon,
+  }) {
+    return Obx(() {
+      final isSelected = controller.selectedMethod.value == name;
+      return GestureDetector(
+        onTap: () => controller.selectMethod(name),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: Colors.white,
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.black, width: 1.0),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isSelected ? _primaryColor : Colors.transparent,
+              width: 2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: isSelected
+                    ? _primaryColor.withOpacity(0.1)
+                    : Colors.black.withOpacity(0.03),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-          child: const Center(
-            child: Icon(Icons.add, color: Colors.black, size: 24),
+          child: Row(
+            children: [
+              // Icon Container
+              Container(
+                width: 50,
+                height: 50,
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: isImage
+                    ? Image.asset(asset, fit: BoxFit.contain)
+                    : Icon(icon, color: Colors.black87, size: 24),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  name,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                    color: _textDark,
+                  ),
+                ),
+              ),
+              if (isSelected)
+                const Icon(
+                  Ionicons.checkmark_circle,
+                  color: _primaryColor,
+                  size: 24,
+                )
+              else
+                Icon(Icons.circle_outlined, color: Colors.grey[300], size: 24),
+            ],
           ),
         ),
-        title: const Text(
-          'Add Payment Method',
-          style: TextStyle(fontWeight: FontWeight.normal, fontSize: 16),
-        ),
-        trailing: const Icon(
-          Icons.arrow_forward_ios,
-          color: Colors.grey,
-          size: 16,
-        ),
-        onTap: () {
-          Get.snackbar('Tambah Metode', 'Halaman tambah metode pembayaran');
-        },
-      ),
-    );
+      );
+    });
   }
 }
