@@ -5,13 +5,16 @@ import 'package:nusaniaga/app/data/api_service.dart';
 class ProfileController extends GetxController {
   final ApiService _apiService = ApiService();
 
-  // State
   var isLoading = true.obs;
   var userProfile = <String, dynamic>{}.obs;
 
-  // STATISTIK DATA ASLI
-  var voucherCount = 0.obs; // Jumlah Voucher
-  var userPoints = 0.obs; // Jumlah Poin
+  // STATISTIK
+  var voucherCount = 0.obs;
+  var userPoints = 0.obs;
+  var totalTransactions = 0.obs;
+
+  // VARIABLE BARU UNTUK REFRESH GAMBAR
+  var imageSignature = 0.obs;
 
   @override
   void onInit() {
@@ -20,30 +23,52 @@ class ProfileController extends GetxController {
   }
 
   Future<void> loadProfile() async {
-    isLoading(true);
-    // ... logika load profile dari SharedPreferences (kode lama) ...
-    // Anggap user sudah login, kita panggil refreshProfile untuk ambil data terbaru
-    await refreshProfile();
-    isLoading(false);
+    try {
+      isLoading(true);
+
+      final prefs = await SharedPreferences.getInstance();
+      String id = prefs.getString('user_id') ?? '';
+      String name = prefs.getString('user_name') ?? 'Pengguna';
+      String email = prefs.getString('user_email') ?? '-';
+      String role = prefs.getString('user_role') ?? 'Member';
+
+      userProfile.value = {
+        'id': id,
+        'name': name,
+        'email': email,
+        'role': role,
+      };
+
+      // UPDATE SIGNATURE AGAR GAMBAR BERUBAH
+      imageSignature.value = DateTime.now().millisecondsSinceEpoch;
+
+      if (id.isNotEmpty) {
+        await refreshLiveData(id, name);
+      }
+    } catch (e) {
+      print("Error loading profile: $e");
+    } finally {
+      isLoading(false);
+    }
   }
 
-  Future<void> refreshProfile() async {
+  Future<void> refreshLiveData(String userId, String userName) async {
     try {
-      // 1. Ambil Profile Terbaru (Jika ada endpoint profile)
-      // ... (logika update profile user) ...
-
-      // 2. AMBIL DATA VOUCHER (Hitung Jumlahnya)
       var vouchers = await _apiService.getVouchers();
       voucherCount.value = vouchers.length;
 
-      // 3. AMBIL POIN USER (Opsional, jika ingin data poin asli juga)
-      // Kita butuh ID user untuk cek poin. Jika di SharedPreferences ada ID, pakai itu.
-      // Misal: String uid = userProfile['id'];
-      // int points = await _apiService.getUserPoints(uid);
-      // userPoints.value = points;
+      int points = await _apiService.getUserPoints(userId);
+      userPoints.value = points;
+
+      var transactions = await _apiService.getTransactionHistory(userName);
+      totalTransactions.value = transactions.length;
     } catch (e) {
-      print("Error refresh profile: $e");
+      print("Error refreshing data: $e");
     }
+  }
+
+  Future<void> refreshProfile() async {
+    await loadProfile();
   }
 
   void logout() async {

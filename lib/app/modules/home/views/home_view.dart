@@ -1,26 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:async';
 import 'package:get/get.dart';
 import 'package:ionicons/ionicons.dart';
 
-// Import Controller & Views
+// Import Controller
 import 'package:nusaniaga/app/modules/home/controllers/home_controller.dart';
+
+// Import Views Lain
 import 'package:nusaniaga/app/modules/Poin/views/poin_view.dart';
 import 'package:nusaniaga/app/modules/Profile/views/profile_view.dart';
 import 'package:nusaniaga/app/modules/promo/views/promo_view.dart';
 import 'package:nusaniaga/app/modules/checkout/views/checkout_view.dart';
 import 'package:nusaniaga/app/modules/detail_menu/views/detail_menu_view.dart';
 
-// --- PALET WARNA BIRU MODERN ---
-const Color _kPrimaryColor = Color(0xFF0D47A1); // Biru Tua (Primary)
-const Color _kSecondaryColor = Color(0xFF42A5F5); // Biru Terang (Secondary)
-const Color _kBackgroundColor = Color(
-  0xFFF0F4F8,
-); // Abu-abu kebiruan (Background)
-const Color _kAccentColor = Color(0xFFFFA000); // Amber (untuk kontras/poin)
+// --- WARNA & HELPER ---
+const Color _kPrimaryColor = Color(0xFF0D47A1);
+const Color _kSecondaryColor = Color(0xFF42A5F5);
+const Color _kBackgroundColor = Color(0xFFF0F4F8);
+const Color _kAccentColor = Color(0xFFFFA000);
 
-// --- HELPER ---
 String formatRupiah(dynamic number) {
   if (number == null) return "Rp 0";
   int value = 0;
@@ -45,140 +43,10 @@ class HomeView extends StatefulWidget {
 
 class _HomeViewState extends State<HomeView> {
   final HomeController controller = Get.put(HomeController());
-  String _selectedCategory = "All";
   int _selectedIndex = 0;
-
-  List<Map<String, dynamic>> get _currentMenu {
-    List<dynamic> source = controller.filteredProducts;
-    if (_selectedCategory != "All") {
-      source = source.where((p) {
-        String cat = (p['category'] ?? '').toString();
-        return cat.toLowerCase() == _selectedCategory.toLowerCase();
-      }).toList();
-    }
-    return source.map((product) {
-      return {
-        'id': product['id'].toString(),
-        'name': product['name'] ?? 'Tanpa Nama',
-        'type': product['category'] ?? 'Umum',
-        'price': product['price'] ?? 0,
-        'rating': double.tryParse(product['rating'].toString()) ?? 4.5,
-        'image': product['image_url'] ?? '',
-        'description': product['description'] ?? '',
-        'is_favorite': product['is_favorite'] ?? false,
-      };
-    }).toList();
-  }
-
-  // initState dihapus/dikosongkan karena kita pindah ke AnnotatedRegion di build
-  @override
-  void initState() {
-    super.initState();
-  }
-
-  Widget _buildHomeContent() {
-    return Obx(() {
-      final slides = controller.banners
-          .map((b) => {'image': b['image_url'] ?? ''})
-          .toList();
-
-      return RefreshIndicator(
-        color: _kPrimaryColor,
-        onRefresh: () async {
-          await controller.fetchHomeData();
-          await controller.determinePosition();
-        },
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: EdgeInsets.zero,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 1. Header Kotak & Search
-              _SquareHeader(
-                address: controller.address.value,
-                onSearchChanged: (val) => controller.searchQuery.value = val,
-                searchQuery: controller.searchQuery.value,
-                onClearSearch: () => controller.searchQuery.value = "",
-              ),
-
-              // 2. Body Content
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Promo Slider
-                    if (slides.isNotEmpty) ...[
-                      const Text(
-                        "Promo Spesial ⚡",
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: _kPrimaryColor,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      _CleanPromoSlider(promoSlides: slides),
-                      const SizedBox(height: 25),
-                    ],
-
-                    // Header Kategori
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          "Kategori",
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: _kPrimaryColor,
-                          ),
-                        ),
-                        InkWell(
-                          onTap: () {},
-                          child: Text(
-                            "Lihat Semua",
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    // List Kategori (Chips)
-                    _CleanCategoryList(
-                      categories: controller.categoryList.toList(),
-                      selectedCategory: _selectedCategory,
-                      onCategorySelected: (cat) =>
-                          setState(() => _selectedCategory = cat),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // Grid Menu
-                    _CleanGridMenu(
-                      menu: _currentMenu,
-                      onItemTap: (item) =>
-                          Get.to(() => const DetailMenuView(), arguments: item),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
-    // Navigasi Halaman
     final List<Widget> pages = [
       _buildHomeContent(),
       const PromoView(),
@@ -187,16 +55,12 @@ class _HomeViewState extends State<HomeView> {
       const ProfileView(),
     ];
 
-    // --- ANNOTATED REGION (Warna Status Bar) ---
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
-        // Bagian ATAS (Status Bar)
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.light, // Icon Putih
-        statusBarBrightness: Brightness.dark, // iOS: Icon Putih
-        // Bagian BAWAH (Navigation Bar HP)
-        systemNavigationBarColor: Colors.white, // Background Putih
-        systemNavigationBarIconBrightness: Brightness.dark, // Icon Hitam
+        statusBarIconBrightness: Brightness.light,
+        systemNavigationBarColor: Colors.white,
+        systemNavigationBarIconBrightness: Brightness.dark,
       ),
       child: Scaffold(
         backgroundColor: _kBackgroundColor,
@@ -205,15 +69,12 @@ class _HomeViewState extends State<HomeView> {
           index: _selectedIndex == 2 ? 0 : _selectedIndex,
           children: pages,
         ),
-
-        // FAB
         floatingActionButton: SizedBox(
           width: 65,
           height: 65,
           child: FloatingActionButton(
             onPressed: () => Get.to(() => const CheckoutView()),
-            backgroundColor:
-                _kSecondaryColor, // Menggunakan Biru Terang agar menonjol
+            backgroundColor: _kSecondaryColor,
             elevation: 4,
             shape: const CircleBorder(),
             child: const Icon(
@@ -224,8 +85,6 @@ class _HomeViewState extends State<HomeView> {
           ),
         ),
         floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-
-        // Bottom Navbar
         bottomNavigationBar: BottomAppBar(
           shape: const CircularNotchedRectangle(),
           notchMargin: 8.0,
@@ -272,9 +131,125 @@ class _HomeViewState extends State<HomeView> {
       ),
     );
   }
+
+  Widget _buildHomeContent() {
+    return Obx(() {
+      final slides = controller.banners
+          .map((b) => {'image': b['image_url'] ?? ''})
+          .toList();
+
+      final categories = controller.categoryList.toList();
+      final selectedCategory = controller.selectedCategory.value;
+
+      final displayProducts = controller.filteredProducts.map((product) {
+        // --- LOGIKA RATING ASLI DARI DATABASE ---
+        double realRating = 0.0;
+        if (product['rating'] != null) {
+          realRating = double.tryParse(product['rating'].toString()) ?? 0.0;
+        }
+
+        return {
+          'id': product['id'].toString(),
+          'name': product['name'] ?? 'Tanpa Nama',
+          'type': product['category'] ?? 'Umum',
+          'price': product['price'] ?? 0,
+          'rating': realRating, // Rating asli (bukan dummy)
+          'image': product['image_url'] ?? '',
+          'description': product['description'] ?? '',
+          'stock': product['stock'] ?? 0,
+          'is_favorite': product['is_favorite'] ?? false,
+        };
+      }).toList();
+
+      return RefreshIndicator(
+        color: _kPrimaryColor,
+        onRefresh: () async {
+          await controller.refreshHomeData();
+        },
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          padding: EdgeInsets.zero,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SquareHeader(
+                address: controller.address.value,
+                searchQuery: controller.searchQuery.value,
+                onSearchChanged: (val) => controller.searchQuery.value = val,
+                onClearSearch: () => controller.searchQuery.value = "",
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (slides.isNotEmpty) ...[
+                      const Text(
+                        "Promo Spesial ⚡",
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: _kPrimaryColor,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _CleanPromoSlider(promoSlides: slides),
+                      const SizedBox(height: 25),
+                    ],
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          "Kategori",
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: _kPrimaryColor,
+                          ),
+                        ),
+                        InkWell(
+                          onTap: () => controller.changeCategory("All"),
+                          child: Text(
+                            "Lihat Semua",
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    _CleanCategoryList(
+                      categories: categories,
+                      selectedCategory: selectedCategory,
+                      onCategorySelected: (cat) =>
+                          controller.changeCategory(cat),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // GRID MENU DENGAN DATA ASLI
+                    _CleanGridMenu(
+                      menu: displayProducts,
+                      onItemTap: (item) {
+                        Get.to(() => const DetailMenuView(), arguments: item);
+                      },
+                      onFavoriteTap: (id) {
+                        controller.toggleFavorite(id);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    });
+  }
 }
 
-// ================= KOMPONEN =================
+// ================= WIDGET KOMPONEN =================
 
 class _SquareHeader extends StatelessWidget {
   final String address;
@@ -294,7 +269,6 @@ class _SquareHeader extends StatelessWidget {
     final topPadding = MediaQuery.of(context).padding.top;
     return Container(
       width: double.infinity,
-      // Gradient Header Biru
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -330,7 +304,7 @@ class _SquareHeader extends StatelessWidget {
                       children: [
                         const Icon(
                           Ionicons.location,
-                          color: _kAccentColor, // Aksen Kuning/Amber
+                          color: _kAccentColor,
                           size: 16,
                         ),
                         const SizedBox(width: 6),
@@ -373,6 +347,10 @@ class _SquareHeader extends StatelessWidget {
             ),
             child: TextField(
               onChanged: onSearchChanged,
+              controller: TextEditingController(text: searchQuery)
+                ..selection = TextSelection.fromPosition(
+                  TextPosition(offset: searchQuery.length),
+                ),
               style: const TextStyle(color: Colors.black87),
               decoration: InputDecoration(
                 hintText: "Cari produk...",
@@ -427,7 +405,8 @@ class _CleanCategoryList extends StatelessWidget {
           final isSelected = cat == selectedCategory;
           return GestureDetector(
             onTap: () => onCategorySelected(cat),
-            child: Container(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               decoration: BoxDecoration(
                 color: isSelected ? _kPrimaryColor : Colors.white,
@@ -435,6 +414,15 @@ class _CleanCategoryList extends StatelessWidget {
                 border: Border.all(
                   color: isSelected ? _kPrimaryColor : Colors.grey.shade300,
                 ),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: _kPrimaryColor.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ]
+                    : [],
               ),
               child: Center(
                 child: Text(
@@ -459,8 +447,13 @@ class _CleanCategoryList extends StatelessWidget {
 class _CleanGridMenu extends StatelessWidget {
   final List<Map<String, dynamic>> menu;
   final Function(Map<String, dynamic>) onItemTap;
+  final Function(String) onFavoriteTap;
 
-  const _CleanGridMenu({required this.menu, required this.onItemTap});
+  const _CleanGridMenu({
+    required this.menu,
+    required this.onItemTap,
+    required this.onFavoriteTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -473,7 +466,7 @@ class _CleanGridMenu extends StatelessWidget {
               Icon(Ionicons.cube_outline, size: 48, color: Colors.grey[400]),
               const SizedBox(height: 10),
               Text(
-                "Produk belum tersedia",
+                "Produk tidak ditemukan",
                 style: TextStyle(color: Colors.grey[500]),
               ),
             ],
@@ -491,10 +484,17 @@ class _CleanGridMenu extends StatelessWidget {
         crossAxisCount: 2,
         mainAxisSpacing: 15,
         crossAxisSpacing: 15,
-        childAspectRatio: 0.8,
+        childAspectRatio: 0.70,
       ),
       itemBuilder: (context, index) {
         final item = menu[index];
+        final bool isFav = item['is_favorite'] == true;
+
+        // --- PERBAIKAN: RATING ASLI ---
+        double rating = item['rating'] ?? 0.0;
+        // Jika 0, tampilkan "Baru", jika ada angka tampilkan "4.8"
+        String ratingStr = rating <= 0 ? "Baru" : rating.toStringAsFixed(1);
+
         return GestureDetector(
           onTap: () => onItemTap(item),
           child: Container(
@@ -503,7 +503,7 @@ class _CleanGridMenu extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.grey.withOpacity(0.05),
+                  color: Colors.grey.withOpacity(0.08),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -513,52 +513,84 @@ class _CleanGridMenu extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: ClipRRect(
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(12),
-                    ),
-                    child: Stack(
-                      children: [
-                        Container(
+                  child: Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(12),
+                        ),
+                        child: Container(
                           width: double.infinity,
                           color: Colors.grey[100],
                           child: (item['image'].toString().startsWith('http')
-                              ? Image.network(item['image'], fit: BoxFit.cover)
+                              ? Image.network(
+                                  item['image'],
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (c, e, s) => const Center(
+                                    child: Icon(
+                                      Icons.image_not_supported,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                )
                               : Image.asset(item['image'], fit: BoxFit.cover)),
                         ),
-                        Positioned(
-                          top: 8,
-                          right: 8,
+                      ),
+                      Positioned(
+                        top: 8,
+                        left: 8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.6),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.star,
+                                color: Colors.amber,
+                                size: 10,
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                ratingStr,
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        top: 6,
+                        right: 6,
+                        child: GestureDetector(
+                          onTap: () => onFavoriteTap(item['id']),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
+                            padding: const EdgeInsets.all(6),
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
                               color: Colors.white,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(
-                                  Icons.star,
-                                  color: Colors.amber,
-                                  size: 12,
-                                ),
-                                const SizedBox(width: 2),
-                                Text(
-                                  item['rating'].toString(),
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
+                              boxShadow: [
+                                BoxShadow(color: Colors.black12, blurRadius: 4),
                               ],
+                            ),
+                            child: Icon(
+                              isFav ? Ionicons.heart : Ionicons.heart_outline,
+                              color: isFav ? Colors.red : Colors.grey[400],
+                              size: 16,
                             ),
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
                 Padding(
@@ -573,21 +605,39 @@ class _CleanGridMenu extends StatelessWidget {
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
+                          color: Colors.black87,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        item['type'],
-                        style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _kPrimaryColor.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          item['type'] ?? 'Umum',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: _kPrimaryColor.withOpacity(0.8),
+                          ),
+                        ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 10),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
                             formatRupiah(item['price']),
                             style: const TextStyle(
-                              fontWeight: FontWeight.bold,
+                              fontWeight: FontWeight.w800,
                               fontSize: 13,
                               color: _kPrimaryColor,
                             ),
@@ -595,13 +645,13 @@ class _CleanGridMenu extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.all(4),
                             decoration: BoxDecoration(
-                              color: _kPrimaryColor.withOpacity(0.1),
-                              shape: BoxShape.circle,
+                              color: _kSecondaryColor,
+                              borderRadius: BorderRadius.circular(6),
                             ),
                             child: const Icon(
-                              Icons.add,
+                              Ionicons.add,
                               size: 16,
-                              color: _kPrimaryColor,
+                              color: Colors.white,
                             ),
                           ),
                         ],
@@ -655,7 +705,6 @@ class _NavBarItem extends StatelessWidget {
   final String label;
   final bool isSelected;
   final VoidCallback onTap;
-
   const _NavBarItem({
     required this.icon,
     required this.activeIcon,

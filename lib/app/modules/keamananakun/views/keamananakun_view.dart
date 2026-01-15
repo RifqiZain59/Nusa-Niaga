@@ -1,3 +1,6 @@
+// lib/app/modules/keamananakun/views/keamananakun_view.dart
+
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -13,7 +16,6 @@ class KeamananakunView extends GetView<KeamananakunController> {
       Get.put(KeamananakunController());
     }
 
-    // Warna Tema
     const Color primaryColor = Color(0xFF2563EB);
     const Color backgroundColor = Color(0xFFF9FAFB);
     const Color surfaceColor = Colors.white;
@@ -51,53 +53,90 @@ class KeamananakunView extends GetView<KeamananakunController> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header Ilustrasi / Avatar (Optional)
+              // --- UPDATE BAGIAN AVATAR ---
               Center(
-                child: Stack(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: primaryColor.withOpacity(0.2),
-                          width: 2,
-                        ),
-                      ),
-                      child: const CircleAvatar(
-                        radius: 40,
-                        backgroundColor: Color(0xFFEFF6FF),
-                        child: Icon(
-                          Ionicons.person,
-                          size: 40,
-                          color: primaryColor,
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
+                child: GestureDetector(
+                  onTap: () => controller.pickImage(),
+                  child: Stack(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
-                          color: primaryColor,
                           shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
+                          border: Border.all(
+                            color: primaryColor.withOpacity(0.2),
+                            width: 2,
+                          ),
                         ),
-                        child: const Icon(
-                          Ionicons.camera,
-                          size: 14,
-                          color: Colors.white,
+                        child: Obx(() {
+                          // 1. Prioritas Utama: Gambar Lokal (Baru Dipilih)
+                          if (controller.selectedImagePath.value.isNotEmpty) {
+                            return CircleAvatar(
+                              radius: 40,
+                              backgroundImage: FileImage(
+                                File(controller.selectedImagePath.value),
+                              ),
+                            );
+                          }
+                          // 2. Prioritas Kedua: Gambar Server (Yang Sudah Ada)
+                          else if (controller
+                              .currentImageUrl
+                              .value
+                              .isNotEmpty) {
+                            return CircleAvatar(
+                              radius: 40,
+                              backgroundColor: const Color(0xFFEFF6FF),
+                              // Gunakan foregroundImage agar bisa fallback ke child jika error
+                              foregroundImage: NetworkImage(
+                                controller.currentImageUrl.value,
+                              ),
+                              // Child ditampilkan saat loading atau jika NetworkImage error
+                              child: const Icon(
+                                Ionicons.person,
+                                size: 40,
+                                color: primaryColor,
+                              ),
+                            );
+                          }
+                          // 3. Fallback: Icon Default
+                          else {
+                            return const CircleAvatar(
+                              radius: 40,
+                              backgroundColor: Color(0xFFEFF6FF),
+                              child: Icon(
+                                Ionicons.person,
+                                size: 40,
+                                color: primaryColor,
+                              ),
+                            );
+                          }
+                        }),
+                      ),
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: primaryColor,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
+                          ),
+                          child: const Icon(
+                            Ionicons.camera,
+                            size: 14,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
 
+              // ----------------------------------------------
               const SizedBox(height: 30),
 
-              // Form Section
               const Text(
                 "Informasi Pribadi",
                 style: TextStyle(
@@ -125,7 +164,6 @@ class KeamananakunView extends GetView<KeamananakunController> {
                 keyboardType: TextInputType.emailAddress,
               ),
 
-              // Info Box Email
               Container(
                 margin: const EdgeInsets.only(top: 12),
                 padding: const EdgeInsets.all(12),
@@ -182,7 +220,6 @@ class KeamananakunView extends GetView<KeamananakunController> {
 
               const SizedBox(height: 40),
 
-              // Tombol Simpan
               Obx(
                 () => SizedBox(
                   width: double.infinity,

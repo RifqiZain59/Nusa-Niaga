@@ -3,14 +3,14 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:ionicons/ionicons.dart';
 
-// Import Controller
+// Import Controller & ApiService (untuk URL)
 import '../controllers/profile_controller.dart';
+import '../../../data/api_service.dart'; // Import ini penting untuk URL
 import '../../keamananakun/views/keamananakun_view.dart';
 
 class ProfileView extends GetView<ProfileController> {
   const ProfileView({super.key});
 
-  // Warna Konsisten
   static const Color _primaryBlue = Color(0xFF2563EB);
   static const Color _darkBlue = Color(0xFF1E40AF);
   static const Color _backgroundColor = Color(0xFFF8F9FD);
@@ -38,10 +38,7 @@ class ProfileView extends GetView<ProfileController> {
             physics: const ClampingScrollPhysics(),
             child: Column(
               children: [
-                // 1. HEADER KOTAK BIRU (UPDATED CENTER ALIGNMENT)
                 _buildSquareHeader(context),
-
-                // 2. BAGIAN STATS
                 Transform.translate(
                   offset: const Offset(0, -40),
                   child: Padding(
@@ -50,8 +47,6 @@ class ProfileView extends GetView<ProfileController> {
                       children: [
                         _buildStatsCard(),
                         const SizedBox(height: 20),
-
-                        // MENU SECTIONS
                         _buildSectionTitle('Pengaturan Akun'),
                         _buildMenuCard(
                           children: [
@@ -60,28 +55,35 @@ class ProfileView extends GetView<ProfileController> {
                               title: 'Keamanan Akun',
                               subtitle: 'Password & Verifikasi',
                               onTap: () =>
-                                  Get.to(() => const KeamananakunView()),
+                                  Get.to(() => const KeamananakunView())
+                                  // Saat kembali, refresh profil agar foto terupdate
+                                  ?.then((_) => controller.loadProfile()),
                             ),
                             _buildDivider(),
                             _buildMenuItem(
                               icon: Ionicons.location_outline,
                               title: 'Alamat Pengiriman',
                               subtitle: 'Atur alamat rumah & kantor',
-                              onTap: () {},
+                              onTap: () {
+                                Get.snackbar(
+                                  "Info",
+                                  "Fitur Alamat segera hadir",
+                                );
+                              },
                             ),
                           ],
                         ),
-
                         const SizedBox(height: 24),
-
                         _buildSectionTitle('Aktivitas Belanja'),
                         _buildMenuCard(
                           children: [
                             _buildMenuItem(
                               icon: Ionicons.bag_check_outline,
                               title: 'Pesanan Saya',
-                              badgeCount: 2,
-                              onTap: () {},
+                              badgeCount: 0,
+                              onTap: () {
+                                Get.toNamed('/pesanansaya');
+                              },
                             ),
                             _buildDivider(),
                             _buildMenuItem(
@@ -103,15 +105,25 @@ class ProfileView extends GetView<ProfileController> {
                             ),
                           ],
                         ),
-
                         const SizedBox(height: 30),
-
-                        // LOGOUT BUTTON
                         SizedBox(
                           width: double.infinity,
                           height: 55,
                           child: TextButton(
-                            onPressed: controller.logout,
+                            onPressed: () {
+                              Get.defaultDialog(
+                                title: "Keluar",
+                                middleText: "Apakah Anda yakin ingin keluar?",
+                                textConfirm: "Ya, Keluar",
+                                textCancel: "Batal",
+                                confirmTextColor: Colors.white,
+                                buttonColor: Colors.red,
+                                onConfirm: () {
+                                  Get.back();
+                                  controller.logout();
+                                },
+                              );
+                            },
                             style: TextButton.styleFrom(
                               backgroundColor: const Color(0xFFFEF2F2),
                               foregroundColor: Colors.red,
@@ -136,7 +148,6 @@ class ProfileView extends GetView<ProfileController> {
                             ),
                           ),
                         ),
-
                         const SizedBox(height: 40),
                         const Text(
                           "Versi Aplikasi 1.0.0",
@@ -155,16 +166,11 @@ class ProfileView extends GetView<ProfileController> {
     );
   }
 
-  // ============================================================
-  // WIDGET BUILDER (YANG DIUBAH KE TENGAH)
-  // ============================================================
-
   Widget _buildSquareHeader(BuildContext context) {
     final double statusBarHeight = MediaQuery.of(context).padding.top;
 
     return Stack(
       children: [
-        // Background Gradient
         Container(
           height: 280 + statusBarHeight,
           width: double.infinity,
@@ -176,8 +182,6 @@ class ProfileView extends GetView<ProfileController> {
             ),
           ),
         ),
-
-        // Hiasan Pattern
         Positioned(
           top: -60,
           right: -60,
@@ -202,8 +206,6 @@ class ProfileView extends GetView<ProfileController> {
             ),
           ),
         ),
-
-        // KONTEN UTAMA HEADER
         Padding(
           padding: EdgeInsets.only(
             top: statusBarHeight + 30,
@@ -211,7 +213,6 @@ class ProfileView extends GetView<ProfileController> {
             right: 20,
             bottom: 70,
           ),
-          // Menggunakan SizedBox width infinity untuk memastikan Column berada di tengah skrin penuh
           child: SizedBox(
             width: double.infinity,
             child: Obx(() {
@@ -225,16 +226,19 @@ class ProfileView extends GetView<ProfileController> {
               }
 
               final user = controller.userProfile;
+              final String userId = user['id'] ?? '';
               final name = user['name'] ?? 'Pengguna Baru';
               final email = user['email'] ?? 'Belum ada email';
-              final role = user['role'] ?? 'Member';
+
+              // GENERATE URL GAMBAR
+              // Menambahkan signature time agar gambar tidak di-cache oleh Flutter jika baru diupdate
+              final String imageUrl =
+                  '${ApiService.baseUrl}/customer_image/$userId?v=${controller.imageSignature}';
 
               return Column(
                 mainAxisAlignment: MainAxisAlignment.start,
-                crossAxisAlignment:
-                    CrossAxisAlignment.center, // KUNCI: RATA TENGAH
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // 1. AVATAR
                   Container(
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
@@ -254,6 +258,16 @@ class ProfileView extends GetView<ProfileController> {
                       child: CircleAvatar(
                         radius: 40,
                         backgroundColor: const Color(0xFFF0F5FF),
+                        // === LOGIKA GAMBAR ===
+                        // Menggunakan foregroundImage:
+                        // Jika gambar berhasil diload, tampilkan gambar.
+                        // Jika gagal (error/404), tampilkan child (Inisial Nama).
+                        foregroundImage: userId.isNotEmpty
+                            ? NetworkImage(imageUrl)
+                            : null,
+                        onForegroundImageError: (_, __) {
+                          // Tidak perlu print error agar log bersih
+                        },
                         child: Text(
                           name.isNotEmpty
                               ? name.substring(0, 1).toUpperCase()
@@ -267,13 +281,10 @@ class ProfileView extends GetView<ProfileController> {
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 16),
-
-                  // 2. NAMA PENGGUNA (Centered)
                   Text(
                     name,
-                    textAlign: TextAlign.center, // Pastikan teks rata tengah
+                    textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w700,
@@ -283,57 +294,14 @@ class ProfileView extends GetView<ProfileController> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-
                   const SizedBox(height: 4),
-
-                  // 3. EMAIL (Centered)
                   Text(
                     email,
-                    textAlign: TextAlign.center, // Pastikan teks rata tengah
+                    textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w400,
                       color: Colors.white.withOpacity(0.85),
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // 4. ROLE BADGE (Centered)
-                  // MainAxisSize.min memastikan Container mengikut saiz teks dan berada di tengah Column
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.3),
-                        width: 1,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize
-                          .min, // Kunci agar Row tidak melebar penuh
-                      children: [
-                        const Icon(
-                          Ionicons.shield_checkmark,
-                          color: Colors.white,
-                          size: 14,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          role.toUpperCase(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.2,
-                          ),
-                        ),
-                      ],
                     ),
                   ),
                 ],
@@ -359,15 +327,20 @@ class ProfileView extends GetView<ProfileController> {
           ),
         ],
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildStatItem("0", "Voucher"),
-          Container(height: 30, width: 1, color: Colors.grey[200]),
-          _buildStatItem("0", "Points"),
-          Container(height: 30, width: 1, color: Colors.grey[200]),
-          _buildStatItem("Silver", "Level"),
-        ],
+      child: Obx(
+        () => Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _buildStatItem(controller.voucherCount.value.toString(), "Voucher"),
+            Container(height: 30, width: 1, color: Colors.grey[200]),
+            _buildStatItem("${controller.userPoints.value}", "Poin"),
+            Container(height: 30, width: 1, color: Colors.grey[200]),
+            _buildStatItem(
+              controller.totalTransactions.value.toString(),
+              "Transaksi",
+            ),
+          ],
+        ),
       ),
     );
   }

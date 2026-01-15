@@ -1,11 +1,12 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 
 class ApiService {
   // =======================================================================
   // KONFIGURASI KONEKSI
   // =======================================================================
-  // Ganti URL ini dengan URL Ngrok/Server terbaru Anda
+  // Pastikan URL ini sesuai dengan URL Ngrok terbaru Anda
   static const String baseUrl =
       'https://undepraved-jaiden-nonflexibly.ngrok-free.dev/api';
 
@@ -21,7 +22,6 @@ class ApiService {
   // HELPER GAMBAR
   // =======================================================================
 
-  // ID sekarang adalah String (angka unik dari backend)
   String getProductImageUrl(String productId) {
     return '$_rootUrl/product_image/$productId';
   }
@@ -30,11 +30,14 @@ class ApiService {
     return '$_rootUrl/banner_image/$bannerId';
   }
 
+  Future<List<dynamic>> getProductReviews(String productId) async {
+    return await _getListData('$baseUrl/reviews/$productId');
+  }
+
   // =======================================================================
   // 1. AUTH PENGGUNA
   // =======================================================================
 
-  // Endpoint: /api/registerpengguna
   Future<Map<String, dynamic>> registerPengguna(
     String name,
     String phone,
@@ -58,8 +61,16 @@ class ApiService {
     }
   }
 
-  // Endpoint: /api/loginpengguna
-  // UPDATE: Login menggunakan 'email' sesuai app.py
+  // Alias untuk kompatibilitas dengan RegisterController lama
+  Future<Map<String, dynamic>?> registrasiPengguna(
+    String name,
+    String email,
+    String phone,
+    String password,
+  ) async {
+    return await registerPengguna(name, phone, password, email);
+  }
+
   Future<Map<String, dynamic>> loginPengguna(
     String email,
     String password,
@@ -80,20 +91,44 @@ class ApiService {
   // 2. DATA PRODUK & DETAIL
   // =======================================================================
 
-  // Sesuai route /api/products
   Future<List<dynamic>> getProducts() async {
-    final data = await _getListData('$baseUrl/products');
-    return data.map((item) {
-      // Pastikan ID dikonversi ke String (jaga-jaga jika JSON membacanya sbg int)
-      String pid = item['id'].toString();
-      item['id'] = pid;
-      item['image_url'] = getProductImageUrl(pid);
-      item['rating'] = item['rating'] ?? 0.0;
-      return item;
-    }).toList();
+    try {
+      final list = await _getListData('$baseUrl/products');
+
+      // Transform data: Tambahkan URL Gambar lengkap
+      return list.map((item) {
+        // Pastikan ID ada dan dikonversi ke String
+        String id = item['id'].toString();
+
+        // Buat URL Gambar manual mengarah ke endpoint Flask
+        // Tambahkan timestamp (?v=...) agar gambar tidak cache jika berubah
+        item['image_url'] = '$baseUrl/product_image/$id';
+
+        return item;
+      }).toList();
+    } catch (e) {
+      print("Error getProducts: $e");
+      return []; // Return list kosong agar aplikasi tidak crash
+    }
   }
 
-  // Sesuai route /api/products/<id>
+  Future<bool> addReview(String userId, String productId, int rating) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/add_review'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'user_id': userId,
+          'product_id': productId,
+          'rating': rating,
+        }),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
+  }
+
   Future<Map<String, dynamic>> getProductDetail(
     String productId, {
     String? customerId,
@@ -105,13 +140,17 @@ class ApiService {
       }
 
       final response = await http.get(Uri.parse(url), headers: _headers);
-
       Map<String, dynamic> data = _processGenericResponse(response);
 
       if (data['status'] == 'success') {
-        data['id'] = data['id'].toString();
-        data['image_url'] = getProductImageUrl(productId);
-        data['description'] = data['description'] ?? 'Tidak ada deskripsi.';
+        var product = data['data'] ?? data;
+        if (product is Map<String, dynamic>) {
+          product['id'] = product['id'].toString();
+          product['image_url'] = getProductImageUrl(productId);
+          product['description'] =
+              product['description'] ?? 'Tidak ada deskripsi.';
+          return product;
+        }
       }
       return data;
     } catch (e) {
@@ -123,7 +162,6 @@ class ApiService {
   // 3. FAVORIT & BANNER & VOUCHER
   // =======================================================================
 
-  // Sesuai route /api/favorites/<customer_id>
   Future<List<dynamic>> getFavorites(String customerId) async {
     final data = await _getListData('$baseUrl/favorites/$customerId');
     return data.map((item) {
@@ -134,7 +172,6 @@ class ApiService {
     }).toList();
   }
 
-  // Sesuai route /api/toggle_favorite
   Future<Map<String, dynamic>> toggleFavorite(
     String customerId,
     String productId,
@@ -151,7 +188,6 @@ class ApiService {
     }
   }
 
-  // Sesuai route /api/banners
   Future<List<dynamic>> getBanners() async {
     final data = await _getListData('$baseUrl/banners');
     return data.map((item) {
@@ -162,16 +198,14 @@ class ApiService {
     }).toList();
   }
 
-  // Sesuai route /api/vouchers
   Future<List<dynamic>> getVouchers() async {
     return await _getListData('$baseUrl/vouchers');
   }
 
   // =======================================================================
-  // 4. TRANSAKSI (CHECKOUT & REDEEM)
+  // 4. TRANSAKSI, POIN & REWARDS
   // =======================================================================
 
-  // Sesuai route /api/checkout
   Future<Map<String, dynamic>> checkout({
     required String customerId,
     required List<Map<String, dynamic>> items,
@@ -179,13 +213,8 @@ class ApiService {
     String paymentMethod = 'Cash',
   }) async {
     try {
-      // Pastikan item ID dalam keranjang juga String
       final processedItems = items.map((item) {
-        return {
-          'id': item['id'].toString(),
-          'qty': item['qty'],
-          // field lain jika perlu
-        };
+        return {'id': item['id'].toString(), 'qty': item['qty']};
       }).toList();
 
       final body = {
@@ -206,7 +235,41 @@ class ApiService {
     }
   }
 
-  // Sesuai route /api/redeem
+  // Alias untuk PaymentController
+  Future<Map<String, dynamic>> createTransaction({
+    required String customerId,
+    required String customerName,
+    required double totalAmount,
+    required String paymentMethod,
+    required List<Map<String, dynamic>> items,
+    String? voucherCode,
+    String? tableNumber,
+  }) async {
+    try {
+      final bodyData = {
+        'customer_id': customerId,
+        'customer_name': customerName,
+        'final_price': totalAmount,
+        'payment_method': paymentMethod,
+        'items': items,
+        'voucher_code': voucherCode,
+        'table_number': tableNumber ?? 'Take Away',
+      };
+
+      // PERBAIKAN: Menggunakan endpoint /checkout yang benar
+      final response = await http.post(
+        Uri.parse('$baseUrl/checkout'),
+        headers: _headers,
+        body: jsonEncode(bodyData),
+      );
+
+      return _processResponse(response);
+    } catch (e) {
+      print("Checkout Error: $e");
+      return {'status': 'error', 'message': 'Gagal memproses transaksi'};
+    }
+  }
+
   Future<Map<String, dynamic>> redeemPoints({
     required String customerId,
     required int points,
@@ -227,6 +290,41 @@ class ApiService {
       return _processResponse(response);
     } catch (e) {
       return {'status': 'error', 'message': 'Gagal redeem: $e'};
+    }
+  }
+
+  Future<int> getUserPoints(String userId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/user_points/$userId'),
+        headers: _headers,
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        if (json['status'] == 'success' && json['data'] != null) {
+          return int.tryParse(json['data']['points'].toString()) ?? 0;
+        }
+      }
+    } catch (e) {
+      print("Error get points: $e");
+    }
+    return 0;
+  }
+
+  Future<List<dynamic>> getRewards() async {
+    return await _getListData('$baseUrl/rewards');
+  }
+
+  // PERBAIKAN: Menggunakan endpoint /transactions dengan query param
+  Future<List<dynamic>> getTransactionHistory(String customerName) async {
+    try {
+      final encodedName = Uri.encodeComponent(customerName);
+      return await _getListData(
+        '$baseUrl/transactions?customer_name=$encodedName',
+      );
+    } catch (e) {
+      print("Error History: $e");
+      return [];
     }
   }
 
@@ -273,7 +371,6 @@ class ApiService {
     try {
       final response = await http.get(Uri.parse(url), headers: _headers);
 
-      // Cek jika server mengembalikan HTML error (biasanya diawali <)
       if (response.body.trim().startsWith("<")) return [];
 
       if (response.statusCode == 200) {
@@ -297,125 +394,82 @@ class ApiService {
       };
     }
     try {
-      return jsonDecode(response.body);
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+      return {'status': 'error', 'message': 'Format respon bukan JSON Object'};
     } catch (e) {
-      return {'status': 'error', 'message': 'Format respon tidak valid'};
+      return {'status': 'error', 'message': 'Format respon tidak valid: $e'};
     }
   }
 
   Map<String, dynamic> _processGenericResponse(http.Response response) {
     if (response.statusCode == 200 || response.statusCode == 201) {
-      return jsonDecode(response.body);
+      try {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic>) return decoded;
+        return {'status': 'error', 'message': 'Respon tidak valid'};
+      } catch (_) {
+        return {'status': 'error', 'message': 'Gagal decode JSON'};
+      }
     } else if (response.statusCode == 404) {
       return {'status': 'error', 'message': 'Data tidak ditemukan (404)'};
     } else {
-      try {
-        return jsonDecode(response.body);
-      } catch (_) {
-        return {'status': 'error', 'message': 'Error: ${response.statusCode}'};
-      }
+      return {'status': 'error', 'message': 'Error: ${response.statusCode}'};
     }
   }
 
-  Future<int> getUserPoints(String userId) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/user_points/$userId'),
-        headers: _headers,
-      );
-      if (response.statusCode == 200) {
-        final json = jsonDecode(response.body);
-        if (json['status'] == 'success') {
-          return int.tryParse(json['data']['points'].toString()) ?? 0;
-        }
-      }
-    } catch (e) {
-      print("Error get points: $e");
-    }
-    return 0;
-  }
-
-  Future<List<dynamic>> getRewards() async {
-    return await _getListData('$baseUrl/rewards');
-  }
-
-  Future<Map<String, dynamic>> createTransaction({
-    required String customerId,
-    required String customerName,
-    required double totalAmount,
-    required String paymentMethod,
-    required List<Map<String, dynamic>> items,
-    String? voucherCode,
-    String? tableNumber,
+  Future<Map<String, dynamic>> updateProfile({
+    required String userId,
+    required String name,
+    required String email,
+    String? password,
+    File? imageFile, // Parameter File Gambar
   }) async {
     try {
-      final url = Uri.parse('$baseUrl/api/checkout');
-
-      final bodyData = {
-        'customer_id': customerId,
-        'customer_name': customerName,
-        'final_price': totalAmount,
-        'payment_method': paymentMethod,
-        'items': items,
-        'voucher_code': voucherCode,
-        'table_number': tableNumber ?? 'Take Away',
-      };
-
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(bodyData),
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse(
+          '$baseUrl/update_profile',
+        ), // Pastikan endpoint ini ada di app.py
       );
 
-      return jsonDecode(response.body);
-    } catch (e) {
-      print("Checkout Error: $e");
-      return {'status': 'error', 'message': 'Gagal memproses transaksi'};
-    }
-  }
+      // Header
+      request.headers.addAll({
+        'ngrok-skip-browser-warning': 'true',
+        'Accept': 'application/json',
+      });
 
-  Future<List<dynamic>> getTransactionHistory(String customerName) async {
-    try {
-      // Encode nama agar URL aman (misal: "Budi Santoso" -> "Budi%20Santoso")
-      final encodedName = Uri.encodeComponent(customerName);
-      final url = Uri.parse('$baseUrl/api/history/$encodedName');
-
-      final response = await http.get(url);
-
-      if (response.statusCode == 200) {
-        final body = jsonDecode(response.body);
-        return body['data'] ?? [];
+      // Field Teks
+      request.fields['user_id'] = userId;
+      request.fields['name'] = name;
+      request.fields['email'] = email;
+      if (password != null && password.isNotEmpty) {
+        request.fields['password'] = password;
       }
-      return [];
-    } catch (e) {
-      print("Error History: $e");
-      return [];
-    }
-  }
 
-  Future<Map<String, dynamic>?> registrasiPengguna(
-    String name,
-    String email,
-    String phone,
-    String password,
-  ) async {
-    try {
-      final url = Uri.parse('$baseUrl/api/registerpengguna');
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'name': name,
-          'email': email,
-          'phone': phone,
-          'password': password,
-        }),
-      );
+      // Field Gambar (Jika user memilih gambar baru)
+      if (imageFile != null) {
+        var stream = http.ByteStream(imageFile.openRead());
+        var length = await imageFile.length();
 
-      return jsonDecode(response.body);
+        var multipartFile = http.MultipartFile(
+          'avatar', // Nama field harus sesuai dengan backend (request.files['avatar'])
+          stream,
+          length,
+          filename: imageFile.path.split('/').last,
+        );
+        request.files.add(multipartFile);
+      }
+
+      // Kirim Request
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+
+      return _processResponse(response);
     } catch (e) {
-      print("Register Error: $e");
-      return {'status': 'error', 'message': 'Koneksi gagal'};
+      return {'status': 'error', 'message': 'Gagal upload: $e'};
     }
   }
 }
