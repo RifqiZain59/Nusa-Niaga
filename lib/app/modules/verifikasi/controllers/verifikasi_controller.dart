@@ -1,103 +1,107 @@
+import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // Import Firebase Auth
+import 'package:shared_preferences/shared_preferences.dart';
 
 class VerifikasiController extends GetxController {
-  // Status loading
-  final RxBool isLoading = false.obs;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // Variabel email (untuk tampilan UI saja)
-  late String email;
+  // State
+  var email = "".obs;
+  var isLoading = false.obs;
+  var canResendEmail = false.obs;
+  var secondsRemaining = 60.obs;
+
+  Timer? _timer;
+  Timer? _resendTimer;
 
   @override
   void onInit() {
     super.onInit();
 
-    // Ambil user saat ini dari Firebase
-    User? currentUser = FirebaseAuth.instance.currentUser;
+    // Ambil email dari arguments
+    if (Get.arguments != null && Get.arguments['email'] != null) {
+      email.value = Get.arguments['email'];
+    }
 
-    // Jika ada user login, gunakan emailnya. Jika tidak, ambil dari arguments
-    email = currentUser?.email ?? Get.arguments ?? "email@tidakdiketahui.com";
+    // Mulai cek status verifikasi otomatis tiap 3 detik
+    _startEmailVerificationCheck();
+    _startResendTimer();
   }
 
-  // ==========================================================
-  // FUNGSI KIRIM VERIFIKASI VIA FIREBASE
-  // ==========================================================
-  Future<void> resendVerificationLink() async {
-    isLoading.value = true;
+  // --- CEK STATUS OTOMATIS (POLLING) ---
+  void _startEmailVerificationCheck() {
+    _timer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+      User? user = _auth.currentUser;
 
-    // Tampilkan Loading
-    Get.dialog(
-      const Center(child: CircularProgressIndicator()),
-      barrierDismissible: false,
-    );
+      // Sangat Penting: Reload user agar Firebase menarik status terbaru (Verified/Not)
+      await user?.reload();
 
+      if (user != null && user.emailVerified) {
+        timer.cancel();
+        _navigateToHome();
+      }
+    });
+  }
+
+  // --- HITUNG MUNDUR KIRIM ULANG ---
+  void _startResendTimer() {
+    canResendEmail.value = false;
+    secondsRemaining.value = 60;
+
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (secondsRemaining.value > 0) {
+        secondsRemaining.value--;
+      } else {
+        canResendEmail.value = true;
+        timer.cancel();
+      }
+    });
+  }
+
+  // --- KIRIM ULANG EMAIL ---
+  Future<void> resendVerificationEmail() async {
     try {
-      User? user = FirebaseAuth.instance.currentUser;
-
-      if (user != null && !user.emailVerified) {
-        // 1. Kirim Link Verifikasi bawaan Firebase
+      isLoading.value = true;
+      User? user = _auth.currentUser;
+      if (user != null) {
         await user.sendEmailVerification();
-
-        Get.back(); // Tutup Loading
-        isLoading.value = false;
-
-        Get.snackbar(
-          "Berhasil",
-          "Link verifikasi telah dikirim ke ${user.email}. Cek inbox atau spam.",
-          backgroundColor: Colors.green,
-          colorText: Colors.white,
-          snackPosition: SnackPosition.BOTTOM,
-        );
-      } else if (user != null && user.emailVerified) {
-        Get.back(); // Tutup Loading
-        isLoading.value = false;
-
-        Get.snackbar(
-          "Info",
-          "Email ini sudah terverifikasi.",
-          backgroundColor: Colors.blue,
-          colorText: Colors.white,
-          snackPosition: SnackPosition.BOTTOM,
-        );
-      } else {
-        // User bernilai null (Session habis / belum login)
-        throw FirebaseAuthException(
-          code: 'no-user',
-          message: 'Tidak ada pengguna yang login.',
-        );
+        _startResendTimer();
+        Get.snackbar("Berhasil", "Link baru telah dikirim.");
       }
-    } on FirebaseAuthException catch (e) {
-      Get.back(); // Tutup Loading
-      isLoading.value = false;
-
-      String message = "Gagal mengirim link.";
-
-      // Handle error spesifik Firebase
-      if (e.code == 'too-many-requests') {
-        message = "Terlalu banyak permintaan. Silakan tunggu beberapa saat.";
-      } else {
-        message = e.message ?? message;
-      }
-
-      Get.snackbar(
-        "Gagal",
-        message,
-        backgroundColor: Colors.redAccent,
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
-      );
     } catch (e) {
-      Get.back(); // Tutup Loading
+      Get.snackbar("Error", "Gagal mengirim email. Tunggu sebentar lagi.");
+    } finally {
       isLoading.value = false;
-
-      Get.snackbar(
-        "Error",
-        "Terjadi kesalahan: $e",
-        backgroundColor: Colors.redAccent,
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
-      );
     }
+  }
+
+  void _navigateToHome() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('is_login', true);
+
+    Get.offAllNamed('/home');
+    Get.snackbar(
+      "Sukses",
+      "Email berhasil diverifikasi!",
+      backgroundColor: Colors.green,
+      colorText: Colors.white,
+    );
+  }
+
+  // Jika user ingin ganti email/kembali
+  void logout() async {
+    _timer?.cancel();
+    _resendTimer?.cancel();
+    await _auth.signOut();
+    Get.offAllNamed('/login');
+  }
+
+  @override
+  void onClose() {
+    _timer?.cancel();
+    _resendTimer?.cancel();
+    super.onClose();
   }
 }

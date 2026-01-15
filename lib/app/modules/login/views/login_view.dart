@@ -8,16 +8,16 @@ import '../controllers/login_controller.dart';
 
 // Import View Lain
 import '../../register/views/register_view.dart';
-// Pastikan file lupapassword_view.dart sudah ada di folder modules/lupapassword/views/
-import '../../lupapassword/views/lupapassword_view.dart';
 
 class LoginView extends GetView<LoginController> {
   const LoginView({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Inject Controller secara Lazy agar aman
-    Get.lazyPut(() => LoginController());
+    // Inject Controller jika belum ada
+    if (!Get.isRegistered<LoginController>()) {
+      Get.put(LoginController());
+    }
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
@@ -27,11 +27,12 @@ class LoginView extends GetView<LoginController> {
         statusBarIconBrightness: Brightness.dark,
       ),
       child: Scaffold(
+        // FIX ERROR GEOMETRY: Tambahkan ini
         resizeToAvoidBottomInset: false,
         backgroundColor: const Color(0xFFF8FAFF),
         body: Stack(
           children: [
-            // Background Bubbles
+            // Background Bubbles (Desain Asli Anda)
             Positioned(
               top: -50,
               right: -50,
@@ -62,7 +63,7 @@ class LoginView extends GetView<LoginController> {
                               child: _buildHeader(),
                             ),
                             Transform.translate(
-                              offset: const Offset(0, -70),
+                              offset: const Offset(0, -20),
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(30),
                                 child: BackdropFilter(
@@ -109,7 +110,8 @@ class LoginView extends GetView<LoginController> {
                                           icon: Icons.mail_outline_rounded,
                                           keyboardType:
                                               TextInputType.emailAddress,
-                                          controller: controller.emailC,
+                                          controller: controller
+                                              .emailController, // Fix nama variable
                                         ),
                                         const SizedBox(height: 16),
 
@@ -119,17 +121,16 @@ class LoginView extends GetView<LoginController> {
                                             label: "Password",
                                             hint: "Masukkan password",
                                             icon: Icons.lock_outline_rounded,
-                                            controller: controller.passC,
+                                            controller: controller
+                                                .passwordController, // Fix nama variable
                                             isPassword: controller
-                                                .isPasswordHidden
-                                                .value,
+                                                .isObscure
+                                                .value, // Fix nama variable
                                             suffixIcon: IconButton(
-                                              onPressed: () => controller
-                                                  .togglePasswordVisibility(),
+                                              onPressed: () =>
+                                                  controller.togglePassword(),
                                               icon: Icon(
-                                                controller
-                                                        .isPasswordHidden
-                                                        .value
+                                                controller.isObscure.value
                                                     ? Icons.visibility_off
                                                     : Icons.visibility,
                                                 color: Colors.grey,
@@ -143,8 +144,9 @@ class LoginView extends GetView<LoginController> {
                                           alignment: Alignment.centerRight,
                                           child: TextButton(
                                             onPressed: () {
-                                              Get.to(
-                                                () => const LupapasswordView(),
+                                              Get.snackbar(
+                                                "Info",
+                                                "Fitur Lupa Password",
                                               );
                                             },
                                             child: const Text(
@@ -207,7 +209,7 @@ class LoginView extends GetView<LoginController> {
 
                             // TEXT DAFTAR
                             Transform.translate(
-                              offset: const Offset(0, -60),
+                              offset: const Offset(0, -10),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
@@ -241,7 +243,8 @@ class LoginView extends GetView<LoginController> {
     );
   }
 
-  // Widget Input Builder
+  // --- WIDGET BUILDER HELPERS (Sesuai kode asli Anda) ---
+
   Widget _buildInput({
     required String label,
     required String hint,
@@ -294,7 +297,6 @@ class LoginView extends GetView<LoginController> {
     );
   }
 
-  // Widget Tombol Login
   Widget _buildSubmitButton(String label) {
     return Container(
       width: double.infinity,
@@ -334,15 +336,12 @@ class LoginView extends GetView<LoginController> {
     );
   }
 
-  // Widget Tombol Google
   Widget _buildGoogleButton() {
     return SizedBox(
       width: double.infinity,
       height: 55,
       child: OutlinedButton.icon(
-        onPressed: () {
-          // Implementasi Login Google
-        },
+        onPressed: () {},
         icon: Image.network(
           'https://cdn1.iconfinder.com/data/icons/google-s-logo/150/Google_Icons-09-512.png',
           height: 24,

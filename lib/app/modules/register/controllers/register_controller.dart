@@ -1,189 +1,108 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // 1. Firebase
-import 'package:nusaniaga/app/data/api_service.dart'; // 2. ApiService Sendiri
-import 'package:nusaniaga/app/modules/verifikasi/views/verifikasi_view.dart';
+import '../../../data/api_service.dart';
+import '../../verifikasi/views/verifikasi_view.dart';
 
 class RegisterController extends GetxController {
-  // Instance ApiService
   final ApiService _apiService = ApiService();
-
-  // Instance FirebaseAuth
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  final TextEditingController nameC = TextEditingController();
-  final TextEditingController emailC = TextEditingController();
-  final TextEditingController phoneC = TextEditingController();
-  final TextEditingController passC = TextEditingController();
+  // Controllers untuk input field
+  final TextEditingController nameController = TextEditingController();
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController phoneController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
 
-  final RxBool isLoading = false.obs;
-  final RxBool isPasswordHidden = true.obs;
+  var isLoading = false.obs;
+  var isObscure = true.obs;
+
+  void togglePassword() => isObscure.value = !isObscure.value;
 
   @override
   void onClose() {
-    nameC.dispose();
-    emailC.dispose();
-    phoneC.dispose();
-    passC.dispose();
+    // Membersihkan controller saat halaman ditutup untuk mencegah memory leak
+    nameController.dispose();
+    emailController.dispose();
+    phoneController.dispose();
+    passwordController.dispose();
     super.onClose();
   }
 
   Future<void> register() async {
-    // 1. Validasi Input
-    if (nameC.text.isEmpty ||
-        emailC.text.isEmpty ||
-        phoneC.text.isEmpty ||
-        passC.text.isEmpty) {
-      _showCustomDialog(
-        title: "Peringatan",
-        message: "Semua kolom wajib diisi",
-        isError: true,
-      );
+    // Validasi Input
+    if (nameController.text.trim().isEmpty ||
+        emailController.text.trim().isEmpty ||
+        phoneController.text.trim().isEmpty ||
+        passwordController.text.trim().isEmpty) {
+      _showSnackbar("Error", "Semua kolom wajib diisi", Colors.redAccent);
       return;
     }
 
-    isLoading.value = true;
-
     try {
-      // ============================================================
-      // LANGKAH 1: DAFTAR KE FIREBASE (Untuk Auth & Verifikasi)
-      // ============================================================
+      isLoading.value = true;
+
+      // 1. Simpan ke Database Flask DULU (Best Practice)
+      // Ini mencegah user terdaftar di Firebase tapi gagal masuk database lokal
+      final response = await _apiService.registrasiPengguna(
+        nameController.text.trim(),
+        emailController.text.trim(),
+        phoneController.text.trim(),
+        passwordController.text.trim(),
+      );
+
+      // Anggap saja jika sukses, API mengembalikan status sukses atau tidak error
+      // Jika _apiService.registrasiPengguna melempar error, proses akan langsung ke 'catch'
+
+      // 2. Buat User di Firebase
       UserCredential userCredential = await _auth
           .createUserWithEmailAndPassword(
-            email: emailC.text,
-            password: passC.text,
+            email: emailController.text.trim(),
+            password: passwordController.text.trim(),
           );
 
-      // Update Display Name di Firebase (Opsional, biar rapi)
       if (userCredential.user != null) {
-        await userCredential.user!.updateDisplayName(nameC.text);
-      }
+        // 3. Kirim Email Verifikasi
+        await userCredential.user!.sendEmailVerification();
 
-      // ============================================================
-      // LANGKAH 2: SIMPAN DATA LENGKAP KE API BACKEND SENDIRI
-      // ============================================================
-      try {
-        final response = await _apiService.registerPengguna(
-          nameC.text,
-          phoneC.text,
-          passC
-              .text, // Password juga dikirim ke backend jika backend butuh login manual juga
-          emailC.text,
+        // 4. Pindah ke Halaman Verifikasi
+        Get.offAll(
+          () => const VerifikasiView(),
+          arguments: {'email': emailController.text.trim()},
         );
 
-        // Cek Respon dari Backend kamu
-        if (response['status'] == 'success') {
-          // ============================================================
-          // LANGKAH 3: KIRIM EMAIL VERIFIKASI (Fitur Firebase)
-          // ============================================================
-          await userCredential.user!.sendEmailVerification();
-
-          isLoading.value = false;
-
-          // Navigasi ke View Verifikasi
-          Get.off(() => const VerifikasiView(), arguments: emailC.text);
-        } else {
-          // JIKA BACKEND GAGAL (Misal: DB Error / No HP duplikat di DB sendiri)
-          // Kita harus MENGHAPUS user di Firebase agar tidak jadi akun "sampah"
-          // yang ada di Firebase tapi tidak ada di database kita.
-          await userCredential.user!.delete();
-
-          throw Exception(
-            response['message'] ?? "Gagal menyimpan data ke server.",
-          );
-        }
-      } catch (eBackend) {
-        // Tangkap error spesifik saat request ke Backend
-        // Hapus user firebase jika backend error (Rollback mechanism)
-        if (_auth.currentUser != null) {
-          await _auth.currentUser!.delete();
-        }
-        throw Exception("Backend Error: $eBackend");
+        _showSnackbar(
+          "Berhasil Daftar",
+          "Silakan cek email Anda untuk verifikasi.",
+          Colors.green,
+        );
       }
     } on FirebaseAuthException catch (e) {
-      isLoading.value = false;
-      String errorMessage = "Gagal registrasi.";
-
-      // Handle Error Firebase
-      if (e.code == 'weak-password') {
-        errorMessage = "Password terlalu lemah (min 6 karakter).";
-      } else if (e.code == 'email-already-in-use') {
-        errorMessage = "Email sudah terdaftar di sistem.";
-      } else if (e.code == 'invalid-email') {
-        errorMessage = "Format email tidak valid.";
+      // Error spesifik Firebase (misal: email sudah digunakan)
+      String message = "Terjadi kesalahan";
+      if (e.code == 'email-already-in-use') {
+        message = "Email sudah terdaftar.";
+      } else if (e.code == 'weak-password') {
+        message = "Password terlalu lemah.";
       }
-
-      _showCustomDialog(
-        title: "Firebase Auth Error",
-        message: errorMessage,
-        isError: true,
-      );
+      _showSnackbar("Gagal", message, Colors.redAccent);
     } catch (e) {
+      // Error lainnya (Server Flask mati, dsb)
+      _showSnackbar("Error", "Gagal terhubung ke server: $e", Colors.redAccent);
+    } finally {
       isLoading.value = false;
-      // Menangani error umum lainnya
-      _showCustomDialog(
-        title: "Gagal",
-        message: e.toString().replaceAll(
-          "Exception:",
-          "",
-        ), // Bersihkan tulisan Exception
-        isError: true,
-      );
     }
   }
 
-  void _showCustomDialog({
-    required String title,
-    required String message,
-    bool isError = false,
-  }) {
-    Get.dialog(
-      Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                isError ? Icons.cancel_outlined : Icons.check_circle_outline,
-                color: isError ? Colors.redAccent : Colors.green,
-                size: 50,
-              ),
-              const SizedBox(height: 15),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.grey),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => Get.back(),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isError
-                        ? Colors.redAccent
-                        : Colors.blueAccent,
-                  ),
-                  child: const Text(
-                    "OK",
-                    style: TextStyle(color: Colors.white),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+  // Helper function untuk snackbar agar kode lebih bersih
+  void _showSnackbar(String title, String message, Color bgColor) {
+    Get.snackbar(
+      title,
+      message,
+      backgroundColor: bgColor,
+      colorText: Colors.white,
+      snackPosition: SnackPosition.BOTTOM,
+      margin: const EdgeInsets.all(15),
     );
   }
 }

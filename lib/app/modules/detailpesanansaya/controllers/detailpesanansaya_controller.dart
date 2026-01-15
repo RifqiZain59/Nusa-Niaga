@@ -1,23 +1,36 @@
 import 'package:get/get.dart';
-import 'package:nusaniaga/app/data/api_service.dart'; // Pastikan import ini benar
+import 'package:nusaniaga/app/data/api_service.dart';
 
 class DetailpesanansayaController extends GetxController {
-  final ApiService _apiService = ApiService();
+  final ApiService apiService = ApiService();
 
-  // Data Transaksi
+  // Variabel untuk menyimpan data transaksi (Reactive)
   var transaction = <String, dynamic>{}.obs;
-
-  // Helper untuk Image URL
-  String getProductImageUrl(String productId) {
-    return _apiService.getProductImageUrl(productId);
-  }
 
   @override
   void onInit() {
     super.onInit();
-    // Tangkap data dari halaman sebelumnya
-    if (Get.arguments != null && Get.arguments is Map) {
-      transaction.assignAll(Get.arguments);
+    // Ambil data otomatis saat controller dibuat pertama kali
+    if (Get.arguments != null) {
+      setTransactionData(Get.arguments);
     }
+  }
+
+  // === FUNGSI YANG HILANG (SOLUSI ERROR ANDA) ===
+  void setTransactionData(dynamic arguments) {
+    if (arguments != null) {
+      // Pastikan formatnya Map<String, dynamic> agar tidak error parsing
+      try {
+        transaction.value = Map<String, dynamic>.from(arguments);
+      } catch (e) {
+        print("Error parsing arguments: $e");
+      }
+    }
+  }
+
+  // Helper untuk mengambil URL gambar produk dari ApiService
+  String getProductImageUrl(String? productId) {
+    if (productId == null || productId.isEmpty) return "";
+    return apiService.getProductImageUrl(productId);
   }
 }

@@ -6,7 +6,7 @@ import '../controllers/detailpesanansaya_controller.dart';
 class DetailpesanansayaView extends GetView<DetailpesanansayaController> {
   const DetailpesanansayaView({super.key});
 
-  // --- PALET WARNA ---
+  // --- STYLE ---
   static const Color _primaryBlue = Color(0xFF2563EB);
   static const Color _bg = Color(0xFFF8F9FD);
   static const Color _textDark = Color(0xFF1F2937);
@@ -15,14 +15,18 @@ class DetailpesanansayaView extends GetView<DetailpesanansayaController> {
   // Helper Format Rupiah
   String formatRupiah(dynamic number) {
     if (number == null) return "Rp 0";
-    int val =
-        int.tryParse(number.toString().replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
-    String str = val.toString();
-    RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
-    return "Rp ${str.replaceAllMapped(reg, (Match m) => '${m[1]}.')}";
+    try {
+      double valDouble = double.tryParse(number.toString()) ?? 0;
+      int val = valDouble.toInt();
+      String str = val.toString();
+      RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
+      return "Rp ${str.replaceAllMapped(reg, (Match m) => '${m[1]}.')}";
+    } catch (e) {
+      return "Rp 0";
+    }
   }
 
-  // Helper Format Tanggal
+  // Helper Tanggal
   String formatTanggal(String? dateString) {
     if (dateString == null || dateString.isEmpty) return "-";
     try {
@@ -49,8 +53,15 @@ class DetailpesanansayaView extends GetView<DetailpesanansayaController> {
 
   @override
   Widget build(BuildContext context) {
+    // Inject Controller jika belum ada
     if (!Get.isRegistered<DetailpesanansayaController>()) {
       Get.put(DetailpesanansayaController());
+    }
+
+    // Ambil arguments jika controller belum punya data
+    // Ini penting jika controller di-recreate
+    if (controller.transaction.isEmpty && Get.arguments != null) {
+      controller.setTransactionData(Get.arguments);
     }
 
     return Scaffold(
@@ -73,43 +84,53 @@ class DetailpesanansayaView extends GetView<DetailpesanansayaController> {
         ),
       ),
       body: Obx(() {
+        // PERBAIKAN: Ambil data dari Observable
         final data = controller.transaction;
+
+        // Jika data masih kosong, tampilkan loading atau pesan error
         if (data.isEmpty) {
-          return const Center(child: Text("Data transaksi tidak ditemukan"));
+          return const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(color: _primaryBlue),
+                SizedBox(height: 10),
+                Text("Memuat data transaksi..."),
+              ],
+            ),
+          );
         }
 
         // --- PARSING DATA ---
-        String orderId = data['queue_number'] ?? '000';
-        String status = data['status'] ?? 'PAID';
+        String orderId = data['queue_number']?.toString() ?? '-';
+        String status = (data['status'] ?? 'PAID').toString().toUpperCase();
         String date = formatTanggal(data['date']);
         String method = data['payment_method'] ?? 'Cash';
-        String customer = data['customer_name'] ?? 'User';
+        String customer = data['customer_name'] ?? 'Pelanggan';
+        String tableNumber = data['table_number'] ?? '-';
 
-        // 1. Ambil Info Meja
-        String tableNumber = data['table_number'] ?? 'App Order';
+        int quantity = int.tryParse(data['quantity'].toString()) ?? 1;
 
-        // 2. Hitung Harga & Diskon
-        double finalPrice =
+        // --- HITUNG HARGA ---
+        double grandTotal =
             double.tryParse(data['final_price'].toString()) ?? 0;
-        double originalPrice =
-            double.tryParse(data['total_price'].toString()) ?? finalPrice;
+        double subTotal = double.tryParse(data['total_price'].toString()) ?? 0;
+        if (subTotal == 0) subTotal = grandTotal;
 
-        // Jika backend tidak kirim total_price, anggap sama dengan finalPrice
-        if (originalPrice < finalPrice) originalPrice = finalPrice;
+        double discountAmount = subTotal - grandTotal;
+        if (discountAmount < 0) discountAmount = 0;
+        bool hasDiscount = discountAmount > 100;
 
-        double discountAmount = originalPrice - finalPrice;
-        bool hasDiscount = discountAmount > 0;
-
-        // Config Status UI
+        // --- STATUS UI ---
         Color statusColor = Colors.green;
         String statusText = "Pembayaran Berhasil";
         IconData statusIcon = Ionicons.checkmark_circle;
 
         if (status == 'PENDING') {
           statusColor = Colors.orange;
-          statusText = "Menunggu Pembayaran";
+          statusText = "Menunggu Proses";
           statusIcon = Ionicons.time;
-        } else if (status == 'CANCELLED') {
+        } else if (status == 'CANCELLED' || status == 'BATAL') {
           statusColor = Colors.red;
           statusText = "Dibatalkan";
           statusIcon = Ionicons.close_circle;
@@ -120,14 +141,14 @@ class DetailpesanansayaView extends GetView<DetailpesanansayaController> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 1. STATUS CARD
+              // HEADER STATUS
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(20),
                 decoration: _boxDecoration(),
                 child: Column(
                   children: [
-                    Icon(statusIcon, color: statusColor, size: 48),
+                    Icon(statusIcon, color: statusColor, size: 50),
                     const SizedBox(height: 12),
                     Text(
                       statusText,
@@ -153,7 +174,7 @@ class DetailpesanansayaView extends GetView<DetailpesanansayaController> {
 
               const SizedBox(height: 20),
 
-              // 2. ITEM PRODUK
+              // DETAIL PRODUK
               const Text(
                 "Detail Produk",
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
@@ -163,34 +184,32 @@ class DetailpesanansayaView extends GetView<DetailpesanansayaController> {
                 padding: const EdgeInsets.all(16),
                 decoration: _boxDecoration(),
                 child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Gambar Produk
                     ClipRRect(
                       borderRadius: BorderRadius.circular(10),
-                      child: Image.network(
-                        controller.getProductImageUrl(
-                          data['product_id'].toString(),
-                        ),
+                      child: Container(
                         width: 70,
                         height: 70,
-                        fit: BoxFit.cover,
-                        errorBuilder: (c, e, s) => Container(
-                          color: Colors.grey[200],
-                          width: 70,
-                          height: 70,
-                          child: const Icon(Icons.image, color: Colors.grey),
+                        color: Colors.grey[200],
+                        child: Image.network(
+                          controller.getProductImageUrl(
+                            data['product_id'].toString(),
+                          ),
+                          fit: BoxFit.cover,
+                          errorBuilder: (c, e, s) => const Icon(
+                            Ionicons.image_outline,
+                            color: Colors.grey,
+                          ),
                         ),
                       ),
                     ),
                     const SizedBox(width: 16),
-                    // Info Produk
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            "Produk Item",
+                            "Produk Item", // Bisa diganti data['product_name'] jika ada
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
@@ -198,7 +217,7 @@ class DetailpesanansayaView extends GetView<DetailpesanansayaController> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            "${data['quantity']} x Barang",
+                            "$quantity x Barang",
                             style: const TextStyle(
                               color: _textGrey,
                               fontSize: 13,
@@ -206,9 +225,7 @@ class DetailpesanansayaView extends GetView<DetailpesanansayaController> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            formatRupiah(
-                              originalPrice,
-                            ), // Tampilkan harga asli per item
+                            formatRupiah(subTotal),
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               color: _primaryBlue,
@@ -223,7 +240,7 @@ class DetailpesanansayaView extends GetView<DetailpesanansayaController> {
 
               const SizedBox(height: 20),
 
-              // 3. INFO PEMESAN & MEJA
+              // INFO PEMESANAN
               const Text(
                 "Info Pemesanan",
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
@@ -242,7 +259,6 @@ class DetailpesanansayaView extends GetView<DetailpesanansayaController> {
                     const SizedBox(height: 12),
                     const Divider(height: 1, color: Colors.grey),
                     const SizedBox(height: 12),
-                    // TAMPILKAN NOMOR MEJA
                     _buildInfoRow("Lokasi / Meja", tableNumber),
                   ],
                 ),
@@ -250,7 +266,7 @@ class DetailpesanansayaView extends GetView<DetailpesanansayaController> {
 
               const SizedBox(height: 20),
 
-              // 4. RINCIAN PEMBAYARAN (HARGA & DISKON)
+              // RINCIAN HARGA
               const Text(
                 "Rincian Pembayaran",
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
@@ -261,31 +277,23 @@ class DetailpesanansayaView extends GetView<DetailpesanansayaController> {
                 decoration: _boxDecoration(),
                 child: Column(
                   children: [
-                    // Subtotal (Harga Asli)
-                    _buildSummaryRow(
-                      "Total Harga",
-                      formatRupiah(originalPrice),
-                    ),
+                    _buildSummaryRow("Subtotal", formatRupiah(subTotal)),
                     const SizedBox(height: 8),
+                    _buildSummaryRow("Pajak / Layanan", "Rp 0"),
 
-                    _buildSummaryRow("Biaya Layanan", "Rp 0"),
-                    const SizedBox(height: 8),
-
-                    // Diskon (Hanya muncul jika ada)
                     if (hasDiscount) ...[
+                      const SizedBox(height: 8),
                       _buildSummaryRow(
-                        "Diskon",
+                        "Diskon Voucher",
                         "- ${formatRupiah(discountAmount)}",
                         isGreen: true,
                       ),
-                      const SizedBox(height: 8),
                     ],
 
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 16),
                     const Divider(height: 1, color: Colors.black12),
                     const SizedBox(height: 16),
 
-                    // Total Akhir (Yang Dibayar)
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -297,7 +305,7 @@ class DetailpesanansayaView extends GetView<DetailpesanansayaController> {
                           ),
                         ),
                         Text(
-                          formatRupiah(finalPrice),
+                          formatRupiah(grandTotal),
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 18,
@@ -309,28 +317,7 @@ class DetailpesanansayaView extends GetView<DetailpesanansayaController> {
                   ],
                 ),
               ),
-
-              const SizedBox(height: 30),
-
-              // Tombol Bantuan
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    Get.snackbar("Bantuan", "Menghubungi Customer Service...");
-                  },
-                  icon: const Icon(Ionicons.help_circle_outline, size: 20),
-                  label: const Text("Butuh Bantuan?"),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    side: const BorderSide(color: _primaryBlue),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 30),
+              const SizedBox(height: 40),
             ],
           ),
         );

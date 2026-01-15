@@ -5,7 +5,7 @@ import 'package:ionicons/ionicons.dart';
 // Import Controller
 import '../controllers/pesanansaya_controller.dart';
 
-// Import Halaman Detail (PENTING: Agar navigasi berfungsi)
+// Import Halaman Detail
 import '../../detailpesanansaya/views/detailpesanansaya_view.dart';
 
 class PesanansayaView extends GetView<PesanansayaController> {
@@ -16,14 +16,23 @@ class PesanansayaView extends GetView<PesanansayaController> {
   static const Color _bg = Color(0xFFF8F9FD);
   static const Color _textDark = Color(0xFF1F2937);
 
-  // Helper Format Rupiah
+  // Helper Format Rupiah (DIPERBAIKI: Aman untuk Double/Float)
   String formatRupiah(dynamic number) {
     if (number == null) return "Rp 0";
-    int val =
-        int.tryParse(number.toString().replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
-    String str = val.toString();
-    RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
-    return "Rp ${str.replaceAllMapped(reg, (Match m) => '${m[1]}.')}";
+    try {
+      // 1. Parse ke double dulu untuk menangani desimal (contoh: 15000.0)
+      double valDouble = double.tryParse(number.toString()) ?? 0;
+
+      // 2. Ubah ke Int (hilangkan koma)
+      int val = valDouble.toInt();
+
+      // 3. Format ribuan
+      String str = val.toString();
+      RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
+      return "Rp ${str.replaceAllMapped(reg, (Match m) => '${m[1]}.')}";
+    } catch (e) {
+      return "Rp 0";
+    }
   }
 
   // Helper Format Tanggal (DD-MM-YYYY)
@@ -31,19 +40,17 @@ class PesanansayaView extends GetView<PesanansayaController> {
     if (dateString == null || dateString.isEmpty) return "Hari ini";
     try {
       DateTime dt = DateTime.parse(dateString);
-      // PadLeft memastikan angka 1-9 menjadi 01-09
       String day = dt.day.toString().padLeft(2, '0');
       String month = dt.month.toString().padLeft(2, '0');
       String year = dt.year.toString();
       return "$day-$month-$year";
     } catch (e) {
-      return dateString; // Jika format error, kembalikan string asli
+      return dateString;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Inject Controller jika belum ada
     if (!Get.isRegistered<PesanansayaController>()) {
       Get.put(PesanansayaController());
     }
@@ -68,14 +75,12 @@ class PesanansayaView extends GetView<PesanansayaController> {
         ),
       ),
       body: Obx(() {
-        // 1. Loading State
         if (controller.isLoading.value) {
           return const Center(
             child: CircularProgressIndicator(color: _primaryBlue),
           );
         }
 
-        // 2. Empty State
         if (controller.allTransactions.isEmpty) {
           return Center(
             child: Column(
@@ -96,7 +101,6 @@ class PesanansayaView extends GetView<PesanansayaController> {
           );
         }
 
-        // 3. List Data
         return RefreshIndicator(
           onRefresh: () => controller.fetchHistory(),
           child: ListView.separated(
@@ -116,16 +120,19 @@ class PesanansayaView extends GetView<PesanansayaController> {
   Widget _buildOrderCard(Map<String, dynamic> item) {
     // --- PARSING DATA ---
     String orderId = item['queue_number'] ?? '000';
-    String date = formatTanggal(item['date']); // Gunakan format baru
+    String date = formatTanggal(item['date']);
     String status = (item['status'] ?? 'PAID').toString().toUpperCase();
-    String totalPrice = formatRupiah(item['final_price'] ?? 0);
+
+    // DIPERBAIKI: Ambil harga dengan aman
+    // Prioritas: final_price -> total_price -> 0
+    var rawPrice = item['final_price'] ?? item['total_price'] ?? 0;
+    String totalPrice = formatRupiah(rawPrice);
 
     // Gambar Produk
     String productId = item['product_id']?.toString() ?? '';
-    // Pastikan controller punya akses ke apiService (public) atau buat helper
     String imageUrl = controller.apiService.getProductImageUrl(productId);
 
-    // Konfigurasi Status (Warna & Teks)
+    // Konfigurasi Status
     Color statusColor = Colors.green;
     String statusText = "Selesai";
     Color bgStatusColor = Colors.green.withOpacity(0.1);
@@ -201,7 +208,7 @@ class PesanansayaView extends GetView<PesanansayaController> {
 
           const Divider(height: 1, color: Color(0xFFF3F4F6)),
 
-          // === BODY KARTU (GAMBAR & INFO) ===
+          // === BODY KARTU ===
           Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
@@ -236,7 +243,7 @@ class PesanansayaView extends GetView<PesanansayaController> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        "Produk Item", // Nama produk statis jika backend belum kirim 'product_name'
+                        "Produk Item", // Nama produk statis
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 15,
@@ -250,6 +257,7 @@ class PesanansayaView extends GetView<PesanansayaController> {
                         style: TextStyle(color: Colors.grey[600], fontSize: 13),
                       ),
                       const SizedBox(height: 8),
+                      // HARGA YANG SUDAH DIPERBAIKI
                       Text(
                         totalPrice,
                         style: const TextStyle(
@@ -269,10 +277,9 @@ class PesanansayaView extends GetView<PesanansayaController> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: SizedBox(
-              width: double.infinity, // Tombol melebar penuh
+              width: double.infinity,
               child: OutlinedButton(
                 onPressed: () {
-                  // NAVIGASI KE HALAMAN DETAIL (Membawa data 'item')
                   Get.to(() => const DetailpesanansayaView(), arguments: item);
                 },
                 style: OutlinedButton.styleFrom(
