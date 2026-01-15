@@ -2,8 +2,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-
-// Pastikan import ini sesuai dengan struktur folder Anda
 import 'package:nusaniaga/app/modules/login/views/login_view.dart';
 import '../controllers/register_controller.dart';
 
@@ -12,9 +10,7 @@ class RegisterView extends GetView<RegisterController> {
 
   @override
   Widget build(BuildContext context) {
-    // =================================================================
-    // SOLUSI ERROR: Inject Controller di sini agar ditemukan oleh GetView
-    // =================================================================
+    // Inject Controller (Pastikan ini ada jika tidak menggunakan Binding)
     Get.put(RegisterController());
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -25,12 +21,11 @@ class RegisterView extends GetView<RegisterController> {
         statusBarIconBrightness: Brightness.dark,
       ),
       child: Scaffold(
-        resizeToAvoidBottomInset:
-            false, // Hindari error pixel overflow saat keyboard muncul
+        resizeToAvoidBottomInset: false,
         backgroundColor: const Color(0xFFF8FAFF),
         body: Stack(
           children: [
-            // --- Background Decoration ---
+            // Background Elements
             Positioned(
               top: -50,
               right: -50,
@@ -47,7 +42,6 @@ class RegisterView extends GetView<RegisterController> {
               child: _buildCircle(100, Colors.cyan.withOpacity(0.1)),
             ),
 
-            // --- Main Content ---
             SafeArea(
               child: Column(
                 children: [
@@ -57,13 +51,10 @@ class RegisterView extends GetView<RegisterController> {
                         padding: const EdgeInsets.symmetric(horizontal: 24),
                         child: Column(
                           children: [
-                            // Logo Header
                             Transform.translate(
                               offset: const Offset(0, -60),
                               child: _buildHeader(),
                             ),
-
-                            // Form Container
                             Transform.translate(
                               offset: const Offset(0, -90),
                               child: ClipRRect(
@@ -88,16 +79,16 @@ class RegisterView extends GetView<RegisterController> {
                                           CrossAxisAlignment.start,
                                       children: [
                                         const Text(
-                                          "Create Account",
+                                          "Buat Akun Baru",
                                           style: TextStyle(
-                                            fontSize: 26,
+                                            fontSize: 24,
                                             fontWeight: FontWeight.bold,
                                             color: Color(0xFF1A1C24),
                                           ),
                                         ),
                                         const SizedBox(height: 8),
                                         const Text(
-                                          "Mulai perjalananmu bersama kami",
+                                          "Lengkapi data diri untuk mendaftar",
                                           style: TextStyle(
                                             color: Colors.black54,
                                             fontSize: 14,
@@ -105,48 +96,43 @@ class RegisterView extends GetView<RegisterController> {
                                         ),
                                         const SizedBox(height: 25),
 
-                                        // --- INPUT FIELDS ---
-
-                                        // 1. Nama
+                                        // INPUT NAMA (Perbaikan: controller.nameC)
                                         _buildInput(
                                           label: "Nama Lengkap",
-                                          hint: "Masukkan nama lengkap",
+                                          hint: "Masukkan nama Anda",
                                           icon: Icons.person_outline_rounded,
-                                          controller: controller.nameController,
+                                          controller: controller.nameC,
                                         ),
                                         const SizedBox(height: 16),
 
-                                        // 2. Nomor HP (Wajib di API)
+                                        // INPUT NO HP (Perbaikan: controller.phoneC)
                                         _buildInput(
                                           label: "Nomor HP",
                                           hint: "Contoh: 0812xxxx",
                                           icon: Icons.phone_android_rounded,
                                           keyboardType: TextInputType.phone,
-                                          controller:
-                                              controller.phoneController,
+                                          controller: controller.phoneC,
                                         ),
                                         const SizedBox(height: 16),
 
-                                        // 3. Email (Opsional)
+                                        // INPUT EMAIL (Perbaikan: controller.emailC & Hapus "Opsional")
                                         _buildInput(
-                                          label: "Email (Opsional)",
-                                          hint: "example@mail.com",
-                                          icon: Icons.mail_outline_rounded,
+                                          label: "Email", // Wajib untuk OTP
+                                          hint: "email@contoh.com",
+                                          icon: Icons.email_outlined,
                                           keyboardType:
                                               TextInputType.emailAddress,
-                                          controller:
-                                              controller.emailController,
+                                          controller: controller.emailC,
                                         ),
                                         const SizedBox(height: 16),
 
-                                        // 4. Password (Reactive Visibility)
+                                        // INPUT PASSWORD (Perbaikan: controller.passC)
                                         Obx(
                                           () => _buildInput(
                                             label: "Password",
-                                            hint: "Minimal 8 karakter",
+                                            hint: "Buat password",
                                             icon: Icons.lock_outline_rounded,
-                                            controller:
-                                                controller.passwordController,
+                                            controller: controller.passC,
                                             isPassword: controller
                                                 .isPasswordHidden
                                                 .value,
@@ -167,8 +153,14 @@ class RegisterView extends GetView<RegisterController> {
                                         ),
                                         const SizedBox(height: 30),
 
-                                        // --- SUBMIT BUTTON (Reactive Loading) ---
-                                        _buildSubmitButton("DAFTAR SEKARANG"),
+                                        // TOMBOL DAFTAR
+                                        Obx(
+                                          () => _buildSubmitButton(
+                                            controller.isLoading.value
+                                                ? "LOADING..."
+                                                : "DAFTAR SEKARANG",
+                                          ),
+                                        ),
                                       ],
                                     ),
                                   ),
@@ -176,7 +168,7 @@ class RegisterView extends GetView<RegisterController> {
                               ),
                             ),
 
-                            // Footer Link to Login
+                            // Footer Login
                             Transform.translate(
                               offset: const Offset(0, -90),
                               child: Row(
@@ -184,10 +176,11 @@ class RegisterView extends GetView<RegisterController> {
                                 children: [
                                   const Text("Sudah punya akun? "),
                                   GestureDetector(
+                                    // Gunakan Get.off agar tidak menumpuk halaman
                                     onTap: () =>
-                                        Get.to(() => const LoginView()),
+                                        Get.off(() => const LoginView()),
                                     child: const Text(
-                                      "Login",
+                                      "Masuk",
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,
                                         color: Colors.blueAccent,
@@ -219,9 +212,8 @@ class RegisterView extends GetView<RegisterController> {
   );
 
   Widget _buildHeader() => SizedBox(
-    height: 220,
-    width: 220,
-    // Pastikan path asset ini benar sesuai folder Anda
+    height: 120, // Sedikit disesuaikan agar proporsional
+    width: 120,
     child: Image.asset('assets/logo_app/logo2.png', fit: BoxFit.contain),
   );
 
@@ -229,7 +221,7 @@ class RegisterView extends GetView<RegisterController> {
     required String label,
     required String hint,
     required IconData icon,
-    required TextEditingController controller, // Wajib menerima controller
+    required TextEditingController controller,
     bool isPassword = false,
     TextInputType keyboardType = TextInputType.text,
     Widget? suffixIcon,
@@ -247,7 +239,7 @@ class RegisterView extends GetView<RegisterController> {
         ),
         const SizedBox(height: 8),
         TextField(
-          controller: controller, // Controller dipasang di sini
+          controller: controller,
           obscureText: isPassword,
           keyboardType: keyboardType,
           decoration: InputDecoration(
@@ -278,57 +270,40 @@ class RegisterView extends GetView<RegisterController> {
   }
 
   Widget _buildSubmitButton(String label) {
-    // Menggunakan Obx untuk memantau status loading
-    return Obx(() {
-      if (controller.isLoading.value) {
-        return Container(
-          width: double.infinity,
-          height: 55,
-          decoration: BoxDecoration(
+    return Container(
+      width: double.infinity,
+      height: 55,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(15),
+        gradient: const LinearGradient(
+          colors: [Colors.blueAccent, Colors.blue],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: ElevatedButton(
+        onPressed: () => controller.register(),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(15),
-            color: Colors.white.withOpacity(0.5),
-          ),
-          child: const Center(child: CircularProgressIndicator()),
-        );
-      }
-
-      return Container(
-        width: double.infinity,
-        height: 55,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(15),
-          gradient: const LinearGradient(
-            colors: [Colors.blueAccent, Colors.blue],
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.blue.withOpacity(0.3),
-              blurRadius: 12,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        child: ElevatedButton(
-          onPressed: () {
-            controller.register(); // Panggil fungsi register
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.transparent,
-            shadowColor: Colors.transparent,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(15),
-            ),
-          ),
-          child: Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 16, // Sedikit diperbesar agar lebih jelas
-            ),
           ),
         ),
-      );
-    });
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+        ),
+      ),
+    );
   }
 }

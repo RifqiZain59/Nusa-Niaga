@@ -4,8 +4,8 @@ import 'package:http/http.dart' as http;
 class ApiService {
   // =======================================================================
   // KONFIGURASI KONEKSI
-  // Ganti URL ini dengan URL Ngrok terbaru Anda setiap kali restart Ngrok
   // =======================================================================
+  // Ganti URL ini dengan URL Ngrok/Server terbaru Anda
   static const String baseUrl =
       'https://undepraved-jaiden-nonflexibly.ngrok-free.dev/api';
 
@@ -21,28 +21,28 @@ class ApiService {
   // HELPER GAMBAR
   // =======================================================================
 
-  String getProductImageUrl(int productId) {
+  String getProductImageUrl(String productId) {
     return '$_rootUrl/product_image/$productId';
   }
 
-  String getBannerImageUrl(int bannerId) {
+  String getBannerImageUrl(String bannerId) {
     return '$_rootUrl/banner_image/$bannerId';
   }
 
   // =======================================================================
-  // 1. AUTH PENGGUNA (LOGIN & REGISTER KHUSUS USER)
+  // 1. AUTH PENGGUNA
   // =======================================================================
 
   // Endpoint: /api/registerpengguna
   Future<Map<String, dynamic>> registerPengguna(
     String name,
     String phone,
-    String password, {
-    String? email, // Opsional: Ditambahkan sesuai backend baru
-  }) async {
+    String password,
+    String email,
+  ) async {
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/registerpengguna'), // Endpoint DIUBAH
+        Uri.parse('$baseUrl/registerpengguna'),
         headers: _headers,
         body: jsonEncode({
           'name': name,
@@ -59,14 +59,14 @@ class ApiService {
 
   // Endpoint: /api/loginpengguna
   Future<Map<String, dynamic>> loginPengguna(
-    String phone,
+    String email,
     String password,
   ) async {
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/loginpengguna'), // Endpoint DIUBAH
+        Uri.parse('$baseUrl/loginpengguna'),
         headers: _headers,
-        body: jsonEncode({'phone': phone, 'password': password}),
+        body: jsonEncode({'email': email, 'password': password}),
       );
       return _processResponse(response);
     } catch (e) {
@@ -75,33 +75,73 @@ class ApiService {
   }
 
   // =======================================================================
-  // 2. DATA PRODUK & DETAIL
+  // 2. DATA PRODUK & KATALOG
   // =======================================================================
 
-  // Sesuai route /api/products
+  // Mengambil semua produk (Route /api/products)
   Future<List<dynamic>> getProducts() async {
     final data = await _getListData('$baseUrl/products');
     return data.map((item) {
-      item['image_url'] = getProductImageUrl(item['id']);
+      String pid = item['id'].toString();
+      item['id'] = pid;
+      item['image_url'] = getProductImageUrl(pid);
       item['rating'] = item['rating'] ?? 0.0;
       return item;
     }).toList();
   }
 
-  // Sesuai route /api/products/<id>
+  // Mengambil Katalog dengan Filter (PENTING: Menggunakan endpoint /products)
+  Future<List<dynamic>> getCatalog({String? search, String? categoryId}) async {
+    // Kita panggil /products karena itu yang tersedia di backend app.py
+    // Filter pencarian sebaiknya dilakukan di sisi Client (Controller) untuk performa lebih baik
+    // kecuali backend sudah support query param ?search=...
+
+    // Membangun Query String jika backend support
+    List<String> queryParams = [];
+    if (search != null && search.isNotEmpty) {
+      queryParams.add('search=${Uri.encodeComponent(search)}');
+    }
+    if (categoryId != null && categoryId.isNotEmpty) {
+      queryParams.add('category_id=$categoryId');
+    }
+
+    String queryString = '';
+    if (queryParams.isNotEmpty) {
+      queryString = '?${queryParams.join('&')}';
+    }
+
+    // UPDATE: Menggunakan endpoint /products bukan /catalog
+    final url = '$baseUrl/products$queryString';
+
+    final data = await _getListData(url);
+
+    return data.map((item) {
+      String pid = item['id'].toString();
+      item['id'] = pid;
+      item['image_url'] = getProductImageUrl(pid);
+      item['rating'] = item['rating'] ?? 0.0;
+      item['category'] = item['category'] ?? 'Umum';
+      return item;
+    }).toList();
+  }
+
+  // Detail Produk (Route /api/products/<id>)
   Future<Map<String, dynamic>> getProductDetail(
-    int productId, {
-    int customerId = 0,
+    String productId, {
+    String? customerId,
   }) async {
     try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/products/$productId?customer_id=$customerId'),
-        headers: _headers,
-      );
+      String url = '$baseUrl/products/$productId';
+      if (customerId != null && customerId.isNotEmpty) {
+        url += '?customer_id=$customerId';
+      }
+
+      final response = await http.get(Uri.parse(url), headers: _headers);
 
       Map<String, dynamic> data = _processGenericResponse(response);
 
       if (data['status'] == 'success') {
+        data['id'] = data['id'].toString();
         data['image_url'] = getProductImageUrl(productId);
         data['description'] = data['description'] ?? 'Tidak ada deskripsi.';
       }
@@ -112,22 +152,24 @@ class ApiService {
   }
 
   // =======================================================================
-  // 3. FAVORIT & BANNER & VOUCHER
+  // 3. FAVORIT, BANNER & VOUCHER
   // =======================================================================
 
-  // Sesuai route /api/favorites/<customer_id>
-  Future<List<dynamic>> getFavorites(int customerId) async {
+  // Favorit User
+  Future<List<dynamic>> getFavorites(String customerId) async {
     final data = await _getListData('$baseUrl/favorites/$customerId');
     return data.map((item) {
-      item['image_url'] = getProductImageUrl(item['product_id']);
+      String pid = item['product_id'].toString();
+      item['product_id'] = pid;
+      item['image_url'] = getProductImageUrl(pid);
       return item;
     }).toList();
   }
 
-  // Sesuai route /api/toggle_favorite
+  // Toggle Favorit
   Future<Map<String, dynamic>> toggleFavorite(
-    int customerId,
-    int productId,
+    String customerId,
+    String productId,
   ) async {
     try {
       final response = await http.post(
@@ -141,35 +183,46 @@ class ApiService {
     }
   }
 
-  // Sesuai route /api/banners
+  // Banners
   Future<List<dynamic>> getBanners() async {
     final data = await _getListData('$baseUrl/banners');
     return data.map((item) {
-      item['image_url'] = getBannerImageUrl(item['id']);
+      String bid = item['id'].toString();
+      item['id'] = bid;
+      item['image_url'] = getBannerImageUrl(bid);
       return item;
     }).toList();
   }
 
-  // Sesuai route /api/vouchers
+  // Vouchers (Hanya SATU deklarasi)
   Future<List<dynamic>> getVouchers() async {
     return await _getListData('$baseUrl/vouchers');
   }
 
+  // Kategori
+  Future<List<dynamic>> getCategories() async {
+    return await _getListData('$baseUrl/categories');
+  }
+
   // =======================================================================
-  // 4. TRANSAKSI (CHECKOUT & REDEEM)
+  // 4. TRANSAKSI (CHECKOUT & REDEEM) & POIN
   // =======================================================================
 
-  // Sesuai route /api/checkout
+  // Checkout
   Future<Map<String, dynamic>> checkout({
-    required int customerId,
+    required String customerId,
     required List<Map<String, dynamic>> items,
     String? voucherCode,
     String paymentMethod = 'Cash',
   }) async {
     try {
+      final processedItems = items.map((item) {
+        return {'id': item['id'].toString(), 'qty': item['qty']};
+      }).toList();
+
       final body = {
         'customer_id': customerId,
-        'items': items,
+        'items': processedItems,
         'voucher_code': voucherCode,
         'payment_method': paymentMethod,
       };
@@ -185,9 +238,9 @@ class ApiService {
     }
   }
 
-  // Sesuai route /api/redeem
+  // Redeem Poin
   Future<Map<String, dynamic>> redeemPoints({
-    required int customerId,
+    required String customerId,
     required int points,
     String description = 'Penukaran via Aplikasi',
   }) async {
@@ -209,37 +262,33 @@ class ApiService {
     }
   }
 
-  // =======================================================================
-  // 5. KATALOG & KATEGORI
-  // =======================================================================
-
-  Future<List<dynamic>> getCategories() async {
-    return await _getListData('$baseUrl/categories');
-  }
-
-  Future<List<dynamic>> getCatalog({String? search, int? categoryId}) async {
-    List<String> queryParams = [];
-
-    if (search != null && search.isNotEmpty) {
-      queryParams.add('search=${Uri.encodeComponent(search)}');
-    }
-    if (categoryId != null) {
-      queryParams.add('category_id=$categoryId');
-    }
-
-    String queryString = '';
-    if (queryParams.isNotEmpty) {
-      queryString = '?${queryParams.join('&')}';
-    }
-
-    final url = '$baseUrl/catalog$queryString';
-    final data = await _getListData(url);
-
+  // Rewards (Hadiah Penukaran)
+  Future<List<dynamic>> getRewards() async {
+    final data = await _getListData('$baseUrl/rewards');
     return data.map((item) {
-      item['image_url'] = getProductImageUrl(item['id']);
-      item['rating'] = item['rating'] ?? 0.0;
+      String pid = item['id'].toString();
+      item['id'] = pid;
       return item;
     }).toList();
+  }
+
+  // Cek Poin User
+  Future<int> getUserPoints(String userId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/user_points/$userId'),
+        headers: _headers,
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        if (json['status'] == 'success') {
+          return int.tryParse(json['data']['points'].toString()) ?? 0;
+        }
+      }
+    } catch (e) {
+      print("Error get points: $e");
+    }
+    return 0;
   }
 
   // =======================================================================
@@ -249,7 +298,10 @@ class ApiService {
   Future<List<dynamic>> _getListData(String url) async {
     try {
       final response = await http.get(Uri.parse(url), headers: _headers);
+
+      // Cek jika response HTML (bukan JSON)
       if (response.body.trim().startsWith("<")) return [];
+
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
         if (json is Map<String, dynamic> && json['status'] == 'success') {
@@ -258,6 +310,7 @@ class ApiService {
       }
       return [];
     } catch (e) {
+      print("API Error ($url): $e");
       return [];
     }
   }

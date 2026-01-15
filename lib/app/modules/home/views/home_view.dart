@@ -6,29 +6,30 @@ import 'package:ionicons/ionicons.dart';
 
 // Import Controller & Views
 import 'package:nusaniaga/app/modules/home/controllers/home_controller.dart';
-// Pastikan import di bawah ini sesuai struktur folder Anda
 import 'package:nusaniaga/app/modules/Poin/views/poin_view.dart';
 import 'package:nusaniaga/app/modules/Profile/views/profile_view.dart';
 import 'package:nusaniaga/app/modules/promo/views/promo_view.dart';
 import 'package:nusaniaga/app/modules/checkout/views/checkout_view.dart';
 import 'package:nusaniaga/app/modules/detail_menu/views/detail_menu_view.dart';
 
-// Konstanta Warna
-const Color _kBackgroundColor = Color(0xFFFFFFFF);
-const Color _kSearchBarColor = Color(0xFFF5F5F5);
-const Color _kAccentColor = Color(0xFF6E4E3A);
+// --- PALET WARNA BIRU MODERN ---
+const Color _kPrimaryColor = Color(0xFF0D47A1); // Biru Tua (Primary)
+const Color _kSecondaryColor = Color(0xFF42A5F5); // Biru Terang (Secondary)
+const Color _kBackgroundColor = Color(
+  0xFFF0F4F8,
+); // Abu-abu kebiruan (Background)
+const Color _kAccentColor = Color(0xFFFFA000); // Amber (untuk kontras/poin)
 
-// Fungsi Global untuk Format Rupiah
+// --- HELPER ---
 String formatRupiah(dynamic number) {
   if (number == null) return "Rp 0";
   int value = 0;
-  if (number is String)
-    value = int.tryParse(number) ?? 0;
-  else if (number is double)
+  if (number is String) {
+    String clean = number.replaceAll(RegExp(r'[^0-9]'), '');
+    value = int.tryParse(clean) ?? 0;
+  } else if (number is num) {
     value = number.toInt();
-  else
-    value = number;
-
+  }
   String str = value.toString();
   RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
   String result = str.replaceAllMapped(reg, (Match m) => '${m[1]}.');
@@ -44,31 +45,24 @@ class HomeView extends StatefulWidget {
 
 class _HomeViewState extends State<HomeView> {
   final HomeController controller = Get.put(HomeController());
-
-  // State Lokal untuk Filter Tab
   String _selectedCategory = "All";
   int _selectedIndex = 0;
 
-  // Logic Filter Menu: Menggabungkan hasil search API + filter kategori Lokal
   List<Map<String, dynamic>> get _currentMenu {
-    List<dynamic> sourceData = controller.filteredProducts;
-
-    // Filter Logic Lokal
+    List<dynamic> source = controller.filteredProducts;
     if (_selectedCategory != "All") {
-      sourceData = sourceData.where((p) {
-        String cat = (p['category'] ?? '').toString().toLowerCase();
-        return cat == _selectedCategory.toLowerCase();
+      source = source.where((p) {
+        String cat = (p['category'] ?? '').toString();
+        return cat.toLowerCase() == _selectedCategory.toLowerCase();
       }).toList();
     }
-
-    return sourceData.map((product) {
+    return source.map((product) {
       return {
-        'id': product['id'],
+        'id': product['id'].toString(),
         'name': product['name'] ?? 'Tanpa Nama',
         'type': product['category'] ?? 'Umum',
-        'price': double.tryParse(product['price'].toString()) ?? 0.0,
-        'rating':
-            double.tryParse(product['rating']?.toString() ?? '4.5') ?? 4.5,
+        'price': product['price'] ?? 0,
+        'rating': double.tryParse(product['rating'].toString()) ?? 4.5,
         'image': product['image_url'] ?? '',
         'description': product['description'] ?? '',
         'is_favorite': product['is_favorite'] ?? false,
@@ -76,84 +70,105 @@ class _HomeViewState extends State<HomeView> {
     }).toList();
   }
 
+  // initState dihapus/dikosongkan karena kita pindah ke AnnotatedRegion di build
   @override
   void initState() {
     super.initState();
-    _setSystemUI();
-  }
-
-  void _setSystemUI() {
-    SystemChrome.setSystemUIOverlayStyle(
-      const SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.dark,
-        systemNavigationBarColor: Colors.white,
-        systemNavigationBarIconBrightness: Brightness.dark,
-        systemNavigationBarDividerColor: Colors.transparent,
-      ),
-    );
   }
 
   Widget _buildHomeContent() {
     return Obx(() {
-      // Loading indikator
-      if (controller.isLoading.value && controller.products.isEmpty) {
-        return const Center(
-          child: CircularProgressIndicator(color: _kAccentColor),
-        );
-      }
-
-      final List<Map<String, dynamic>> displaySlides = controller.banners
+      final slides = controller.banners
           .map((b) => {'image': b['image_url'] ?? ''})
           .toList();
 
       return RefreshIndicator(
+        color: _kPrimaryColor,
         onRefresh: () async {
           await controller.fetchHomeData();
           await controller.determinePosition();
         },
         child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
+          physics: const BouncingScrollPhysics(),
+          padding: EdgeInsets.zero,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _HeaderAndSearch(address: controller.address.value),
-              const SizedBox(height: 5),
-              _PromoCard(promoSlides: displaySlides),
-              const SizedBox(height: 25),
+              // 1. Header Kotak & Search
+              _SquareHeader(
+                address: controller.address.value,
+                onSearchChanged: (val) => controller.searchQuery.value = val,
+                searchQuery: controller.searchQuery.value,
+                onClearSearch: () => controller.searchQuery.value = "",
+              ),
 
-              // === Judul Filter ===
+              // 2. Body Content
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: const Text(
-                  "Kategori Menu",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Promo Slider
+                    if (slides.isNotEmpty) ...[
+                      const Text(
+                        "Promo Spesial ⚡",
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: _kPrimaryColor,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _CleanPromoSlider(promoSlides: slides),
+                      const SizedBox(height: 25),
+                    ],
+
+                    // Header Kategori
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          "Kategori",
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: _kPrimaryColor,
+                          ),
+                        ),
+                        InkWell(
+                          onTap: () {},
+                          child: Text(
+                            "Lihat Semua",
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // List Kategori (Chips)
+                    _CleanCategoryList(
+                      categories: controller.categoryList.toList(),
+                      selectedCategory: _selectedCategory,
+                      onCategorySelected: (cat) =>
+                          setState(() => _selectedCategory = cat),
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Grid Menu
+                    _CleanGridMenu(
+                      menu: _currentMenu,
+                      onItemTap: (item) =>
+                          Get.to(() => const DetailMenuView(), arguments: item),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 15),
-
-              // === Widget Filter Kategori (Dinamis dari DB) ===
-              // Menggunakan Obx agar list update otomatis saat data dari controller masuk
-              Obx(
-                () => _CategoryFilterList(
-                  categories: controller.categoryList
-                      .toList(), // Ambil dari Controller
-                  selectedCategory: _selectedCategory,
-                  onCategorySelected: (cat) {
-                    setState(() {
-                      _selectedCategory = cat;
-                    });
-                  },
-                ),
-              ),
-
-              // === List Menu ===
-              _HomeListGrid(
-                menu: _currentMenu,
-                onItemTap: (item) =>
-                    Get.to(() => const DetailMenuView(), arguments: item),
-              ),
-              const SizedBox(height: 100),
             ],
           ),
         ),
@@ -163,56 +178,138 @@ class _HomeViewState extends State<HomeView> {
 
   @override
   Widget build(BuildContext context) {
-    _setSystemUI();
-
+    // Navigasi Halaman
     final List<Widget> pages = [
       _buildHomeContent(),
       const PromoView(),
+      const SizedBox(),
       const PoinView(),
       const ProfileView(),
     ];
 
-    return Scaffold(
-      backgroundColor: _kBackgroundColor,
-      body: IndexedStack(index: _selectedIndex, children: pages),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, -5),
-            ),
-          ],
+    // --- ANNOTATED REGION (Warna Status Bar) ---
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        // Bagian ATAS (Status Bar)
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light, // Icon Putih
+        statusBarBrightness: Brightness.dark, // iOS: Icon Putih
+        // Bagian BAWAH (Navigation Bar HP)
+        systemNavigationBarColor: Colors.white, // Background Putih
+        systemNavigationBarIconBrightness: Brightness.dark, // Icon Hitam
+      ),
+      child: Scaffold(
+        backgroundColor: _kBackgroundColor,
+        extendBody: true,
+        body: IndexedStack(
+          index: _selectedIndex == 2 ? 0 : _selectedIndex,
+          children: pages,
         ),
-        child: _CustomBottomNavBar(
-          selectedIndex: _selectedIndex,
-          onTap: (index) => setState(() => _selectedIndex = index),
+
+        // FAB
+        floatingActionButton: SizedBox(
+          width: 65,
+          height: 65,
+          child: FloatingActionButton(
+            onPressed: () => Get.to(() => const CheckoutView()),
+            backgroundColor:
+                _kSecondaryColor, // Menggunakan Biru Terang agar menonjol
+            elevation: 4,
+            shape: const CircleBorder(),
+            child: const Icon(
+              Ionicons.bag_handle,
+              size: 28,
+              color: Colors.white,
+            ),
+          ),
+        ),
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+
+        // Bottom Navbar
+        bottomNavigationBar: BottomAppBar(
+          shape: const CircularNotchedRectangle(),
+          notchMargin: 8.0,
+          color: Colors.white,
+          surfaceTintColor: Colors.white,
+          elevation: 15,
+          height: 70,
+          padding: EdgeInsets.zero,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _NavBarItem(
+                icon: Ionicons.home_outline,
+                activeIcon: Ionicons.home,
+                label: "Home",
+                isSelected: _selectedIndex == 0,
+                onTap: () => setState(() => _selectedIndex = 0),
+              ),
+              _NavBarItem(
+                icon: Ionicons.pricetags_outline,
+                activeIcon: Ionicons.pricetags,
+                label: "Promo",
+                isSelected: _selectedIndex == 1,
+                onTap: () => setState(() => _selectedIndex = 1),
+              ),
+              const SizedBox(width: 48),
+              _NavBarItem(
+                icon: Ionicons.wallet_outline,
+                activeIcon: Ionicons.wallet,
+                label: "Poin",
+                isSelected: _selectedIndex == 3,
+                onTap: () => setState(() => _selectedIndex = 3),
+              ),
+              _NavBarItem(
+                icon: Ionicons.person_outline,
+                activeIcon: Ionicons.person,
+                label: "Profil",
+                isSelected: _selectedIndex == 4,
+                onTap: () => setState(() => _selectedIndex = 4),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-// ================= KOMPONEN WIDGET =================
+// ================= KOMPONEN =================
 
-class _HeaderAndSearch extends StatelessWidget {
+class _SquareHeader extends StatelessWidget {
   final String address;
-  const _HeaderAndSearch({required this.address});
+  final Function(String) onSearchChanged;
+  final String searchQuery;
+  final VoidCallback onClearSearch;
+
+  const _SquareHeader({
+    required this.address,
+    required this.onSearchChanged,
+    required this.searchQuery,
+    required this.onClearSearch,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final HomeController controller = Get.find<HomeController>();
-
-    return Padding(
+    final topPadding = MediaQuery.of(context).padding.top;
+    return Container(
+      width: double.infinity,
+      // Gradient Header Biru
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [_kPrimaryColor, Color(0xFF1565C0)],
+        ),
+      ),
       padding: EdgeInsets.only(
-        top: MediaQuery.of(context).padding.top + 10,
+        top: topPadding + 15,
+        bottom: 25,
         left: 20,
         right: 20,
-        bottom: 20,
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -221,50 +318,81 @@ class _HeaderAndSearch extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Location',
-                      style: TextStyle(color: Colors.black54, fontSize: 12),
-                    ),
                     Text(
-                      address,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
+                      "Lokasi Kamu",
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.8),
+                        fontSize: 12,
                       ),
-                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(
+                          Ionicons.location,
+                          color: _kAccentColor, // Aksen Kuning/Amber
+                          size: 16,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            address.isEmpty ? "Menemukan lokasi..." : address,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
-              IconButton(
-                icon: const Icon(Ionicons.bag_outline),
-                onPressed: () => Get.to(() => const CheckoutView()),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Ionicons.notifications,
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 15),
-          TextField(
-            onChanged: (value) => controller.searchQuery.value = value,
-            decoration: InputDecoration(
-              hintText: "Search coffee...",
-              prefixIcon: const Icon(
-                Ionicons.search_outline,
-                color: Colors.grey,
-              ),
-              filled: true,
-              fillColor: _kSearchBarColor,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(15),
-                borderSide: BorderSide.none,
-              ),
-              contentPadding: EdgeInsets.zero,
-              suffixIcon: Obx(
-                () => controller.searchQuery.value.isNotEmpty
+          const SizedBox(height: 25),
+          Container(
+            height: 48,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: TextField(
+              onChanged: onSearchChanged,
+              style: const TextStyle(color: Colors.black87),
+              decoration: InputDecoration(
+                hintText: "Cari produk...",
+                hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
+                prefixIcon: const Icon(
+                  Ionicons.search_outline,
+                  color: _kPrimaryColor,
+                  size: 20,
+                ),
+                suffixIcon: searchQuery.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.clear, size: 18),
-                        onPressed: () => controller.searchQuery.value = "",
+                        icon: const Icon(Icons.close, size: 18),
+                        onPressed: onClearSearch,
                       )
-                    : const SizedBox.shrink(),
+                    : null,
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 15,
+                  vertical: 12,
+                ),
               ),
             ),
           ),
@@ -274,12 +402,12 @@ class _HeaderAndSearch extends StatelessWidget {
   }
 }
 
-class _CategoryFilterList extends StatelessWidget {
+class _CleanCategoryList extends StatelessWidget {
   final List<String> categories;
   final String selectedCategory;
   final Function(String) onCategorySelected;
 
-  const _CategoryFilterList({
+  const _CleanCategoryList({
     required this.categories,
     required this.selectedCategory,
     required this.onCategorySelected,
@@ -287,40 +415,37 @@ class _CategoryFilterList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Jika data kategori belum masuk (masih kosong/loading)
-    if (categories.isEmpty) {
-      return const SizedBox(height: 40);
-    }
-
+    if (categories.isEmpty) return const SizedBox(height: 38);
     return SizedBox(
-      height: 40,
-      child: ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
+      height: 38,
+      child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: categories.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
         itemBuilder: (context, index) {
           final cat = categories[index];
           final isSelected = cat == selectedCategory;
           return GestureDetector(
             onTap: () => onCategorySelected(cat),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              margin: const EdgeInsets.only(right: 10),
+            child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               decoration: BoxDecoration(
-                color: isSelected ? _kAccentColor : _kSearchBarColor,
-                borderRadius: BorderRadius.circular(30),
-                border: isSelected
-                    ? Border.all(color: _kAccentColor)
-                    : Border.all(color: Colors.transparent),
+                color: isSelected ? _kPrimaryColor : Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: isSelected ? _kPrimaryColor : Colors.grey.shade300,
+                ),
               ),
-              alignment: Alignment.center,
-              child: Text(
-                cat,
-                style: TextStyle(
-                  color: isSelected ? Colors.white : Colors.black54,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                  fontSize: 13,
+              child: Center(
+                child: Text(
+                  cat,
+                  style: TextStyle(
+                    color: isSelected ? Colors.white : Colors.grey[700],
+                    fontWeight: isSelected
+                        ? FontWeight.bold
+                        : FontWeight.normal,
+                    fontSize: 13,
+                  ),
                 ),
               ),
             ),
@@ -331,310 +456,241 @@ class _CategoryFilterList extends StatelessWidget {
   }
 }
 
-class _HomeCard extends StatelessWidget {
-  final Map<String, dynamic> item;
-  final VoidCallback onTap;
-  const _HomeCard({required this.item, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final HomeController controller = Get.find<HomeController>();
-    final String img = item['image'] ?? '';
-    final bool isFav = item['is_favorite'] ?? false;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(15),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 5),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 110,
-              height: 110,
-              child: Stack(
-                children: [
-                  ClipRRect(
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(15),
-                      bottomLeft: Radius.circular(15),
-                    ),
-                    child: img.startsWith('http')
-                        ? Image.network(
-                            img,
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            height: double.infinity,
-                            errorBuilder: (c, e, s) => Container(
-                              color: Colors.grey[200],
-                              child: const Icon(Icons.broken_image),
-                            ),
-                          )
-                        : Image.asset(
-                            img,
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            height: double.infinity,
-                          ),
-                  ),
-                  Positioned(
-                    top: 8,
-                    left: 8,
-                    child: GestureDetector(
-                      onTap: () => controller.toggleFavorite(item['id']),
-                      child: Container(
-                        padding: const EdgeInsets.all(5),
-                        decoration: const BoxDecoration(
-                          color: Colors.black38,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          isFav ? Icons.favorite : Icons.favorite_border,
-                          color: isFav ? Colors.red : Colors.white,
-                          size: 16,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      item['name'],
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      item['type'],
-                      style: const TextStyle(color: Colors.grey, fontSize: 12),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          formatRupiah(item['price']),
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                            color: _kAccentColor,
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _kSearchBarColor,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.star,
-                                size: 14,
-                                color: Colors.amber,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                item['rating'].toString(),
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _HomeListGrid extends StatelessWidget {
+class _CleanGridMenu extends StatelessWidget {
   final List<Map<String, dynamic>> menu;
   final Function(Map<String, dynamic>) onItemTap;
-  const _HomeListGrid({required this.menu, required this.onItemTap});
+
+  const _CleanGridMenu({required this.menu, required this.onItemTap});
 
   @override
   Widget build(BuildContext context) {
     if (menu.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 60),
+      return Padding(
+        padding: const EdgeInsets.only(top: 40),
         child: Center(
-          child: Text(
-            "Menu tidak ditemukan untuk kategori ini",
-            style: TextStyle(color: Colors.grey),
-          ),
-        ),
-      );
-    }
-    return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: menu.length,
-      separatorBuilder: (context, index) => const SizedBox(height: 15),
-      itemBuilder: (ctx, i) =>
-          _HomeCard(item: menu[i], onTap: () => onItemTap(menu[i])),
-    );
-  }
-}
-
-class _PromoCard extends StatefulWidget {
-  final List<Map<String, dynamic>> promoSlides;
-  const _PromoCard({required this.promoSlides});
-  @override
-  State<_PromoCard> createState() => _PromoCardState();
-}
-
-class _PromoCardState extends State<_PromoCard> {
-  final PageController _pageController = PageController();
-  int _currentPage = 0;
-  Timer? _timer;
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.promoSlides.isNotEmpty) {
-      _timer = Timer.periodic(const Duration(seconds: 4), (t) {
-        if (_pageController.hasClients) {
-          int next = (_currentPage + 1) % widget.promoSlides.length;
-          _pageController.animateToPage(
-            next,
-            duration: const Duration(milliseconds: 800),
-            curve: Curves.easeInOut,
-          );
-        }
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    _pageController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (widget.promoSlides.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: AspectRatio(
-        aspectRatio: 2.3,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(20),
-          child: Stack(
+          child: Column(
             children: [
-              PageView.builder(
-                controller: _pageController,
-                onPageChanged: (v) => setState(() => _currentPage = v),
-                itemCount: widget.promoSlides.length,
-                itemBuilder: (context, index) => Image.network(
-                  widget.promoSlides[index]['image'],
-                  fit: BoxFit.cover,
-                  errorBuilder: (c, e, s) => Container(color: Colors.grey[300]),
-                ),
-              ),
-              Positioned(
-                bottom: 12,
-                left: 0,
-                right: 0,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(
-                    widget.promoSlides.length,
-                    (index) => AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      margin: const EdgeInsets.symmetric(horizontal: 3),
-                      height: 6,
-                      width: _currentPage == index ? 18 : 6,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                  ),
-                ),
+              Icon(Ionicons.cube_outline, size: 48, color: Colors.grey[400]),
+              const SizedBox(height: 10),
+              Text(
+                "Produk belum tersedia",
+                style: TextStyle(color: Colors.grey[500]),
               ),
             ],
           ),
         ),
+      );
+    }
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: EdgeInsets.zero,
+      itemCount: menu.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 15,
+        crossAxisSpacing: 15,
+        childAspectRatio: 0.8,
+      ),
+      itemBuilder: (context, index) {
+        final item = menu[index];
+        return GestureDetector(
+          onTap: () => onItemTap(item),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(12),
+                    ),
+                    child: Stack(
+                      children: [
+                        Container(
+                          width: double.infinity,
+                          color: Colors.grey[100],
+                          child: (item['image'].toString().startsWith('http')
+                              ? Image.network(item['image'], fit: BoxFit.cover)
+                              : Image.asset(item['image'], fit: BoxFit.cover)),
+                        ),
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.star,
+                                  color: Colors.amber,
+                                  size: 12,
+                                ),
+                                const SizedBox(width: 2),
+                                Text(
+                                  item['rating'].toString(),
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item['name'],
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        item['type'],
+                        style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            formatRupiah(item['price']),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              color: _kPrimaryColor,
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: _kPrimaryColor.withOpacity(0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.add,
+                              size: 16,
+                              color: _kPrimaryColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _CleanPromoSlider extends StatelessWidget {
+  final List<Map<String, dynamic>> promoSlides;
+  const _CleanPromoSlider({required this.promoSlides});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 140,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: promoSlides.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemBuilder: (context, index) {
+          return Container(
+            width: 280,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              color: Colors.grey[300],
+              image: DecorationImage(
+                image: NetworkImage(promoSlides[index]['image']),
+                fit: BoxFit.cover,
+                onError: (e, s) {},
+              ),
+            ),
+          );
+        },
       ),
     );
   }
 }
 
-class _CustomBottomNavBar extends StatelessWidget {
-  final int selectedIndex;
-  final Function(int) onTap;
-  const _CustomBottomNavBar({required this.selectedIndex, required this.onTap});
+class _NavBarItem extends StatelessWidget {
+  final IconData icon;
+  final IconData activeIcon;
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _NavBarItem({
+    required this.icon,
+    required this.activeIcon,
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return BottomNavigationBar(
-      currentIndex: selectedIndex,
+    return InkWell(
       onTap: onTap,
-      type: BottomNavigationBarType.fixed,
-      selectedItemColor: _kAccentColor,
-      unselectedItemColor: Colors.black.withOpacity(0.3),
-      showSelectedLabels: true,
-      backgroundColor: Colors.white,
-      elevation: 0,
-      items: const [
-        BottomNavigationBarItem(
-          icon: Icon(Ionicons.home_outline),
-          activeIcon: Icon(Ionicons.home),
-          label: 'Home',
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isSelected ? activeIcon : icon,
+              color: isSelected ? _kPrimaryColor : Colors.grey[400],
+              size: 22,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? _kPrimaryColor : Colors.grey[400],
+                fontSize: 10,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              ),
+            ),
+          ],
         ),
-        BottomNavigationBarItem(
-          icon: Icon(Ionicons.pricetags_outline),
-          activeIcon: Icon(Ionicons.pricetags),
-          label: 'Promo',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Ionicons.wallet_outline),
-          activeIcon: Icon(Ionicons.wallet),
-          label: 'Poin',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Ionicons.person_outline),
-          activeIcon: Icon(Ionicons.person),
-          label: 'Profile',
-        ),
-      ],
+      ),
     );
   }
 }

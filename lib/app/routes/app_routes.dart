@@ -13,6 +13,9 @@ abstract class Routes {
   static const CHECKOUT = _Paths.CHECKOUT;
   static const PAYMENT = _Paths.PAYMENT;
   static const DETAIL_MENU = _Paths.DETAIL_MENU;
+  static const VERIFIKASI = _Paths.VERIFIKASI;
+  static const KEAMANANAKUN = _Paths.KEAMANANAKUN;
+  static const LUPAPASSWORD = _Paths.LUPAPASSWORD;
 }
 
 abstract class _Paths {
@@ -27,4 +30,7 @@ abstract class _Paths {
   static const CHECKOUT = '/checkout';
   static const PAYMENT = '/payment';
   static const DETAIL_MENU = '/detail-menu';
+  static const VERIFIKASI = '/verifikasi';
+  static const KEAMANANAKUN = '/keamananakun';
+  static const LUPAPASSWORD = '/lupapassword';
 }

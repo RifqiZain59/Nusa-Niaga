@@ -14,70 +14,73 @@ class DetailMenuController extends GetxController {
   RxDouble totalPrice = 0.0.obs;
   final TextEditingController notesTextController = TextEditingController();
 
-  // Hardcode ID Customer (Sesuaikan dengan Login Session nanti)
-  final int _customerId = 1;
+  // ID Customer (Sementara dummy, nanti dari session)
+  final String _customerId = "dummy_user_id";
 
   @override
   void onInit() {
     super.onInit();
-    // 1. Ambil data dari halaman sebelumnya (Home) agar UI langsung muncul
+    // 1. Ambil data dari halaman sebelumnya (Home)
     if (Get.arguments != null) {
       product.assignAll(Get.arguments as Map<String, dynamic>);
-      _initializePrice();
-
-      // Set status awal dari kiriman halaman Home
-      isFavorite.value = product['is_favorite'] == true;
-      isLoading.value = false;
+      _initializeData();
     }
 
-    // 2. Refresh data dari server (Untuk harga terbaru & cek ulang status favorit)
+    // 2. Refresh data detail dari server (untuk stok/deskripsi terbaru)
     fetchDetailProduct();
 
+    // Listener perubahan quantity
     ever(quantity, (_) => _updateTotalPrice());
   }
 
-  void _initializePrice() {
-    double price = double.tryParse(product['price'].toString()) ?? 0.0;
-    totalPrice.value = price * quantity.value;
+  void _initializeData() {
+    // Setup Harga Awal
+    _updateTotalPrice();
+
+    // Setup Status Favorit Awal
+    if (product['is_favorite'] == true) {
+      isFavorite.value = true;
+    }
+
+    // Stop loading karena data awal sudah ada
+    isLoading.value = false;
   }
 
-  // --- PERBAIKAN UTAMA DI SINI ---
   Future<void> fetchDetailProduct() async {
     if (product['id'] == null) return;
-    try {
-      // Jangan set isLoading(true) agar UI tidak berkedip (karena sudah ada data awal)
+    String productId = product['id'].toString();
 
-      // Kita jalankan 2 request sekaligus secara paralel:
-      // 1. Detail Produk (untuk update harga/stok jika berubah)
-      // 2. List Favorit User (untuk validasi apakah user benar2 me-like produk ini)
+    try {
+      // Parallel Request: Detail Produk & Cek Favorit
       var results = await Future.wait([
-        _apiService.getProductDetail(product['id']),
+        _apiService.getProductDetail(productId, customerId: _customerId),
         _apiService.getFavorites(_customerId),
       ]);
 
       var detailData = results[0];
       var favoriteData = results[1];
 
-      // A. Update Data Produk
+      // A. Update Data Produk (Merge dengan data lama)
       if (detailData != null && detailData is Map<String, dynamic>) {
-        // Gabungkan data baru ke data lama
+        // Normalisasi Data API agar cocok dengan UI
+        // API mungkin kirim 'category', Home kirim 'type'. Kita set keduanya.
+        if (detailData['category'] != null) {
+          detailData['type'] = detailData['category'];
+        }
+
         product.addAll(detailData);
-        _updateTotalPrice();
+        _updateTotalPrice(); // Hitung ulang jika harga berubah dari server
       }
 
-      // B. Update Status Favorit (Cek apakah ID produk ini ada di list favorit user)
+      // B. Update Status Favorit Real-time
       bool foundInFavorites = false;
       if (favoriteData is List) {
-        // Mencari apakah product_id ini ada di dalam list yang dikembalikan server
         foundInFavorites = favoriteData.any(
-          (item) => item['product_id'] == product['id'],
+          (item) => item['product_id'].toString() == productId,
         );
       }
 
-      // Update Observable UI
       isFavorite.value = foundInFavorites;
-
-      // Sinkronkan ke variabel product agar konsisten
       product['is_favorite'] = foundInFavorites;
     } catch (e) {
       debugPrint("Error detail/favorite: $e");
@@ -86,37 +89,41 @@ class DetailMenuController extends GetxController {
     }
   }
 
-  // Logika Toggle Favorit
   Future<void> toggleFavorite() async {
     if (product['id'] == null || isFavoriteLoading.value) return;
 
     try {
       isFavoriteLoading(true);
+      // Optimistic UI Update (Langsung berubah sebelum request selesai)
+      isFavorite.value = !isFavorite.value;
 
       final result = await _apiService.toggleFavorite(
         _customerId,
-        product['id'],
+        product['id'].toString(),
       );
 
-      if (result['status'] != 'error') {
-        // Balik status saat ini (True jadi False, False jadi True)
+      if (result['status'] == 'error') {
+        // Revert jika gagal
         isFavorite.value = !isFavorite.value;
+        Get.snackbar("Gagal", "Tidak dapat mengubah favorit");
+      } else {
+        // Sinkron data lokal
         product['is_favorite'] = isFavorite.value;
 
         Get.snackbar(
           "Sukses",
-          isFavorite.value ? "Ditambahkan ke favorit" : "Dihapus dari favorit",
-          snackPosition: SnackPosition.BOTTOM,
+          isFavorite.value ? "Disimpan ke favorit" : "Dihapus dari favorit",
+          snackPosition: SnackPosition.TOP,
           backgroundColor: Colors.black87,
           colorText: Colors.white,
-          margin: const EdgeInsets.all(10),
+          margin: const EdgeInsets.all(20),
           borderRadius: 10,
           duration: const Duration(seconds: 1),
         );
       }
     } catch (e) {
-      debugPrint("Error Toggle Favorite: $e");
-      Get.snackbar("Error", "Gagal mengubah status favorit");
+      isFavorite.value = !isFavorite.value; // Revert
+      debugPrint("Error Toggle: $e");
     } finally {
       isFavoriteLoading(false);
     }
@@ -129,7 +136,18 @@ class DetailMenuController extends GetxController {
   }
 
   void _updateTotalPrice() {
-    double price = double.tryParse(product['price'].toString()) ?? 0.0;
+    // Parsing harga yang aman (bisa int, double, atau string)
+    double price = 0.0;
+    var pPrice = product['price'];
+
+    if (pPrice is num) {
+      price = pPrice.toDouble();
+    } else if (pPrice is String) {
+      // Hapus karakter non-angka (Rp, titik, dll)
+      String clean = pPrice.replaceAll(RegExp(r'[^0-9]'), '');
+      price = double.tryParse(clean) ?? 0.0;
+    }
+
     totalPrice.value = price * quantity.value;
   }
 

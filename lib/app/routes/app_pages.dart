@@ -12,14 +12,20 @@ import '../modules/detail_poin/bindings/detail_poin_binding.dart';
 import '../modules/detail_poin/views/detail_poin_view.dart';
 import '../modules/home/bindings/home_binding.dart';
 import '../modules/home/views/home_view.dart';
+import '../modules/keamananakun/bindings/keamananakun_binding.dart';
+import '../modules/keamananakun/views/keamananakun_view.dart';
 import '../modules/login/bindings/login_binding.dart';
 import '../modules/login/views/login_view.dart';
+import '../modules/lupapassword/bindings/lupapassword_binding.dart';
+import '../modules/lupapassword/views/lupapassword_view.dart';
 import '../modules/payment/bindings/payment_binding.dart';
 import '../modules/payment/views/payment_view.dart';
 import '../modules/promo/bindings/promo_binding.dart';
 import '../modules/promo/views/promo_view.dart';
 import '../modules/register/bindings/register_binding.dart';
 import '../modules/register/views/register_view.dart';
+import '../modules/verifikasi/bindings/verifikasi_binding.dart';
+import '../modules/verifikasi/views/verifikasi_view.dart';
 
 part 'app_routes.dart';
 
@@ -78,6 +84,21 @@ class AppPages {
       name: _Paths.DETAIL_MENU,
       page: () => const DetailMenuView(),
       binding: DetailMenuBinding(),
+    ),
+    GetPage(
+      name: _Paths.VERIFIKASI,
+      page: () => const VerifikasiView(),
+      binding: VerifikasiBinding(),
+    ),
+    GetPage(
+      name: _Paths.KEAMANANAKUN,
+      page: () => const KeamananakunView(),
+      binding: KeamananakunBinding(),
+    ),
+    GetPage(
+      name: _Paths.LUPAPASSWORD,
+      page: () => const LupapasswordView(),
+      binding: LupapasswordBinding(),
     ),
   ];
 }

@@ -41,48 +41,50 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyCEaJT7cAo0ViJ0VYkbu3eAnMAoh7EG7gU',
-    appId: '1:716649970802:web:f1f155f053a793380b96eb',
-    messagingSenderId: '716649970802',
-    projectId: 'nusa-niaga',
-    authDomain: 'nusa-niaga.firebaseapp.com',
-    storageBucket: 'nusa-niaga.firebasestorage.app',
-    measurementId: 'G-CS2ZLXDF4V',
+    apiKey: 'AIzaSyCwtlKTf-8rPpcwP2OGE7T2m-XYCd8GxLQ',
+    appId: '1:130094613281:web:239c2baefb3acd83daf460',
+    messagingSenderId: '130094613281',
+    projectId: 'nusa-niaga-28262',
+    authDomain: 'nusa-niaga-28262.firebaseapp.com',
+    storageBucket: 'nusa-niaga-28262.firebasestorage.app',
+    measurementId: 'G-QQHD4MN8PM',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyDKtxBKor8UShlFG115eKrg2Fi56EXe7AM',
-    appId: '1:716649970802:android:38b580e178550e550b96eb',
-    messagingSenderId: '716649970802',
-    projectId: 'nusa-niaga',
-    storageBucket: 'nusa-niaga.firebasestorage.app',
+    apiKey: 'AIzaSyBly49sEC5OFcNyMC1GdfoW5wNEkIzlM04',
+    appId: '1:130094613281:android:6b7450be94013ededaf460',
+    messagingSenderId: '130094613281',
+    projectId: 'nusa-niaga-28262',
+    storageBucket: 'nusa-niaga-28262.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyBuoVoM1zRQPbHNsFu9eqfOwc4Z8kEzdtg',
-    appId: '1:716649970802:ios:5233feec92978c140b96eb',
-    messagingSenderId: '716649970802',
-    projectId: 'nusa-niaga',
-    storageBucket: 'nusa-niaga.firebasestorage.app',
+    apiKey: 'AIzaSyCVZku0XItyKZYvvJ_XWjlrqJVUC50mO7Q',
+    appId: '1:130094613281:ios:a70f1849df2e0f38daf460',
+    messagingSenderId: '130094613281',
+    projectId: 'nusa-niaga-28262',
+    storageBucket: 'nusa-niaga-28262.firebasestorage.app',
+    iosClientId: '130094613281-cl1g9eiv7dlsl50k5g67t4ki0s2gja7q.apps.googleusercontent.com',
     iosBundleId: 'com.example.nusaniaga',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyBuoVoM1zRQPbHNsFu9eqfOwc4Z8kEzdtg',
-    appId: '1:716649970802:ios:5233feec92978c140b96eb',
-    messagingSenderId: '716649970802',
-    projectId: 'nusa-niaga',
-    storageBucket: 'nusa-niaga.firebasestorage.app',
+    apiKey: 'AIzaSyCVZku0XItyKZYvvJ_XWjlrqJVUC50mO7Q',
+    appId: '1:130094613281:ios:a70f1849df2e0f38daf460',
+    messagingSenderId: '130094613281',
+    projectId: 'nusa-niaga-28262',
+    storageBucket: 'nusa-niaga-28262.firebasestorage.app',
+    iosClientId: '130094613281-cl1g9eiv7dlsl50k5g67t4ki0s2gja7q.apps.googleusercontent.com',
     iosBundleId: 'com.example.nusaniaga',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyCEaJT7cAo0ViJ0VYkbu3eAnMAoh7EG7gU',
-    appId: '1:716649970802:web:130460fec9d558390b96eb',
-    messagingSenderId: '716649970802',
-    projectId: 'nusa-niaga',
-    authDomain: 'nusa-niaga.firebaseapp.com',
-    storageBucket: 'nusa-niaga.firebasestorage.app',
-    measurementId: 'G-ZMF6FR777K',
+    apiKey: 'AIzaSyCwtlKTf-8rPpcwP2OGE7T2m-XYCd8GxLQ',
+    appId: '1:130094613281:web:e5d53a40bc838e54daf460',
+    messagingSenderId: '130094613281',
+    projectId: 'nusa-niaga-28262',
+    authDomain: 'nusa-niaga-28262.firebaseapp.com',
+    storageBucket: 'nusa-niaga-28262.firebasestorage.app',
+    measurementId: 'G-HCPPJR6E7L',
   );
 }

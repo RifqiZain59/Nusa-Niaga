@@ -2,14 +2,23 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:nusaniaga/app/modules/register/views/register_view.dart';
+
+// Import Controller
 import '../controllers/login_controller.dart';
+
+// Import View Lain
+import '../../register/views/register_view.dart';
+// Pastikan file lupapassword_view.dart sudah ada di folder modules/lupapassword/views/
+import '../../lupapassword/views/lupapassword_view.dart';
 
 class LoginView extends GetView<LoginController> {
   const LoginView({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // Inject Controller secara Lazy agar aman
+    Get.lazyPut(() => LoginController());
+
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         systemNavigationBarColor: Colors.white,
@@ -22,6 +31,7 @@ class LoginView extends GetView<LoginController> {
         backgroundColor: const Color(0xFFF8FAFF),
         body: Stack(
           children: [
+            // Background Bubbles
             Positioned(
               top: -50,
               right: -50,
@@ -37,6 +47,7 @@ class LoginView extends GetView<LoginController> {
               left: -30,
               child: _buildCircle(100, Colors.cyan.withOpacity(0.1)),
             ),
+
             SafeArea(
               child: Column(
                 children: [
@@ -47,10 +58,7 @@ class LoginView extends GetView<LoginController> {
                         child: Column(
                           children: [
                             Transform.translate(
-                              offset: const Offset(
-                                0,
-                                -40,
-                              ), // Sedikit disesuaikan
+                              offset: const Offset(0, -40),
                               child: _buildHeader(),
                             ),
                             Transform.translate(
@@ -93,24 +101,52 @@ class LoginView extends GetView<LoginController> {
                                           ),
                                         ),
                                         const SizedBox(height: 25),
+
+                                        // INPUT EMAIL
                                         _buildInput(
                                           label: "Email",
                                           hint: "example@mail.com",
                                           icon: Icons.mail_outline_rounded,
                                           keyboardType:
                                               TextInputType.emailAddress,
+                                          controller: controller.emailC,
                                         ),
                                         const SizedBox(height: 16),
-                                        _buildInput(
-                                          label: "Password",
-                                          hint: "Masukkan password",
-                                          icon: Icons.lock_outline_rounded,
-                                          isPassword: true,
+
+                                        // INPUT PASSWORD
+                                        Obx(
+                                          () => _buildInput(
+                                            label: "Password",
+                                            hint: "Masukkan password",
+                                            icon: Icons.lock_outline_rounded,
+                                            controller: controller.passC,
+                                            isPassword: controller
+                                                .isPasswordHidden
+                                                .value,
+                                            suffixIcon: IconButton(
+                                              onPressed: () => controller
+                                                  .togglePasswordVisibility(),
+                                              icon: Icon(
+                                                controller
+                                                        .isPasswordHidden
+                                                        .value
+                                                    ? Icons.visibility_off
+                                                    : Icons.visibility,
+                                                color: Colors.grey,
+                                              ),
+                                            ),
+                                          ),
                                         ),
+
+                                        // TOMBOL LUPA PASSWORD
                                         Align(
                                           alignment: Alignment.centerRight,
                                           child: TextButton(
-                                            onPressed: () {},
+                                            onPressed: () {
+                                              Get.to(
+                                                () => const LupapasswordView(),
+                                              );
+                                            },
                                             child: const Text(
                                               "Lupa Password?",
                                               style: TextStyle(
@@ -121,9 +157,16 @@ class LoginView extends GetView<LoginController> {
                                           ),
                                         ),
                                         const SizedBox(height: 10),
-                                        _buildSubmitButton("MASUK SEKARANG"),
 
-                                        // --- TAMBAHAN TOMBOL GOOGLE ---
+                                        // TOMBOL LOGIN
+                                        Obx(
+                                          () => _buildSubmitButton(
+                                            controller.isLoading.value
+                                                ? "LOADING..."
+                                                : "MASUK SEKARANG",
+                                          ),
+                                        ),
+
                                         const SizedBox(height: 20),
                                         Row(
                                           children: [
@@ -152,14 +195,17 @@ class LoginView extends GetView<LoginController> {
                                           ],
                                         ),
                                         const SizedBox(height: 20),
+
+                                        // TOMBOL GOOGLE
                                         _buildGoogleButton(),
-                                        // ------------------------------
                                       ],
                                     ),
                                   ),
                                 ),
                               ),
                             ),
+
+                            // TEXT DAFTAR
                             Transform.translate(
                               offset: const Offset(0, -60),
                               child: Row(
@@ -195,18 +241,113 @@ class LoginView extends GetView<LoginController> {
     );
   }
 
-  // Fungsi baru untuk Tombol Google
-  Widget _buildGoogleButton() {
+  // Widget Input Builder
+  Widget _buildInput({
+    required String label,
+    required String hint,
+    required IconData icon,
+    required TextEditingController controller,
+    bool isPassword = false,
+    TextInputType keyboardType = TextInputType.text,
+    Widget? suffixIcon,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF1A1C24),
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          obscureText: isPassword,
+          keyboardType: keyboardType,
+          decoration: InputDecoration(
+            hintText: hint,
+            prefixIcon: Icon(
+              icon,
+              color: Colors.blueAccent.withOpacity(0.7),
+              size: 22,
+            ),
+            suffixIcon: suffixIcon,
+            filled: true,
+            fillColor: Colors.white.withOpacity(0.5),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(15),
+              borderSide: BorderSide(color: Colors.grey.shade200),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(15),
+              borderSide: const BorderSide(
+                color: Colors.blueAccent,
+                width: 1.5,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Widget Tombol Login
+  Widget _buildSubmitButton(String label) {
     return Container(
+      width: double.infinity,
+      height: 55,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(15),
+        gradient: const LinearGradient(
+          colors: [Colors.blueAccent, Colors.blue],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: ElevatedButton(
+        onPressed: controller.isLoading.value ? null : () => controller.login(),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+        ),
+        child: controller.isLoading.value
+            ? const CircularProgressIndicator(color: Colors.white)
+            : Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+      ),
+    );
+  }
+
+  // Widget Tombol Google
+  Widget _buildGoogleButton() {
+    return SizedBox(
       width: double.infinity,
       height: 55,
       child: OutlinedButton.icon(
         onPressed: () {
-          // Aksi Login Google
+          // Implementasi Login Google
         },
         icon: Image.network(
           'https://cdn1.iconfinder.com/data/icons/google-s-logo/150/Google_Icons-09-512.png',
           height: 24,
+          errorBuilder: (context, error, stackTrace) =>
+              const Icon(Icons.public),
         ),
         label: const Text(
           "Masuk dengan Google",
@@ -235,91 +376,11 @@ class LoginView extends GetView<LoginController> {
   Widget _buildHeader() => SizedBox(
     height: 200,
     width: 200,
-    child: Image.asset('assets/logo_app/logo2.png', fit: BoxFit.contain),
+    child: Image.asset(
+      'assets/logo_app/logo2.png',
+      fit: BoxFit.contain,
+      errorBuilder: (context, error, stackTrace) =>
+          const Icon(Icons.store, size: 100, color: Colors.blue),
+    ),
   );
-
-  Widget _buildInput({
-    required String label,
-    required String hint,
-    required IconData icon,
-    bool isPassword = false,
-    TextInputType keyboardType = TextInputType.text,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFF1A1C24),
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          obscureText: isPassword,
-          keyboardType: keyboardType,
-          decoration: InputDecoration(
-            hintText: hint,
-            prefixIcon: Icon(
-              icon,
-              color: Colors.blueAccent.withOpacity(0.7),
-              size: 22,
-            ),
-            filled: true,
-            fillColor: Colors.white.withOpacity(0.5),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(15),
-              borderSide: BorderSide(color: Colors.grey.shade200),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(15),
-              borderSide: const BorderSide(
-                color: Colors.blueAccent,
-                width: 1.5,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSubmitButton(String label) {
-    return Container(
-      width: double.infinity,
-      height: 55,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(15),
-        gradient: const LinearGradient(
-          colors: [Colors.blueAccent, Colors.blue],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.blue.withOpacity(0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: ElevatedButton(
-        onPressed: () {},
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.transparent,
-          shadowColor: Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
-          ),
-        ),
-        child: Text(
-          label,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-    );
-  }
 }
