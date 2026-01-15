@@ -21,6 +21,7 @@ class ApiService {
   // HELPER GAMBAR
   // =======================================================================
 
+  // ID sekarang adalah String (angka unik dari backend)
   String getProductImageUrl(String productId) {
     return '$_rootUrl/product_image/$productId';
   }
@@ -33,6 +34,7 @@ class ApiService {
   // 1. AUTH PENGGUNA
   // =======================================================================
 
+  // Endpoint: /api/registerpengguna
   Future<Map<String, dynamic>> registerPengguna(
     String name,
     String phone,
@@ -56,6 +58,8 @@ class ApiService {
     }
   }
 
+  // Endpoint: /api/loginpengguna
+  // UPDATE: Login menggunakan 'email' sesuai app.py
   Future<Map<String, dynamic>> loginPengguna(
     String email,
     String password,
@@ -73,13 +77,14 @@ class ApiService {
   }
 
   // =======================================================================
-  // 2. DATA PRODUK & KATALOG
+  // 2. DATA PRODUK & DETAIL
   // =======================================================================
 
-  // Mengambil semua produk
+  // Sesuai route /api/products
   Future<List<dynamic>> getProducts() async {
     final data = await _getListData('$baseUrl/products');
     return data.map((item) {
+      // Pastikan ID dikonversi ke String (jaga-jaga jika JSON membacanya sbg int)
       String pid = item['id'].toString();
       item['id'] = pid;
       item['image_url'] = getProductImageUrl(pid);
@@ -88,36 +93,7 @@ class ApiService {
     }).toList();
   }
 
-  // Mengambil Katalog dengan Filter
-  Future<List<dynamic>> getCatalog({String? search, String? categoryId}) async {
-    List<String> queryParams = [];
-    if (search != null && search.isNotEmpty) {
-      queryParams.add('search=${Uri.encodeComponent(search)}');
-    }
-    if (categoryId != null && categoryId.isNotEmpty) {
-      queryParams.add('category_id=$categoryId');
-    }
-
-    String queryString = '';
-    if (queryParams.isNotEmpty) {
-      queryString = '?${queryParams.join('&')}';
-    }
-
-    // Menggunakan endpoint /products
-    final url = '$baseUrl/products$queryString';
-    final data = await _getListData(url);
-
-    return data.map((item) {
-      String pid = item['id'].toString();
-      item['id'] = pid;
-      item['image_url'] = getProductImageUrl(pid);
-      item['rating'] = item['rating'] ?? 0.0;
-      item['category'] = item['category'] ?? 'Umum';
-      return item;
-    }).toList();
-  }
-
-  // Detail Produk
+  // Sesuai route /api/products/<id>
   Future<Map<String, dynamic>> getProductDetail(
     String productId, {
     String? customerId,
@@ -129,6 +105,7 @@ class ApiService {
       }
 
       final response = await http.get(Uri.parse(url), headers: _headers);
+
       Map<String, dynamic> data = _processGenericResponse(response);
 
       if (data['status'] == 'success') {
@@ -143,9 +120,10 @@ class ApiService {
   }
 
   // =======================================================================
-  // 3. FAVORIT, BANNER & KATEGORI
+  // 3. FAVORIT & BANNER & VOUCHER
   // =======================================================================
 
+  // Sesuai route /api/favorites/<customer_id>
   Future<List<dynamic>> getFavorites(String customerId) async {
     final data = await _getListData('$baseUrl/favorites/$customerId');
     return data.map((item) {
@@ -156,6 +134,7 @@ class ApiService {
     }).toList();
   }
 
+  // Sesuai route /api/toggle_favorite
   Future<Map<String, dynamic>> toggleFavorite(
     String customerId,
     String productId,
@@ -172,6 +151,7 @@ class ApiService {
     }
   }
 
+  // Sesuai route /api/banners
   Future<List<dynamic>> getBanners() async {
     final data = await _getListData('$baseUrl/banners');
     return data.map((item) {
@@ -182,41 +162,16 @@ class ApiService {
     }).toList();
   }
 
-  Future<List<dynamic>> getCategories() async {
-    return await _getListData('$baseUrl/categories');
-  }
-
-  // =======================================================================
-  // 4. VOUCHER & PROMO
-  // =======================================================================
-
+  // Sesuai route /api/vouchers
   Future<List<dynamic>> getVouchers() async {
     return await _getListData('$baseUrl/vouchers');
   }
 
-  // Cek validitas voucher (filter dari list voucher)
-  Future<int> checkVoucherValidity(String code) async {
-    try {
-      final vouchers = await getVouchers();
-      final voucher = vouchers.firstWhere(
-        (v) => v['code'].toString().toUpperCase() == code.toUpperCase(),
-        orElse: () => null,
-      );
-
-      if (voucher != null) {
-        return int.tryParse(voucher['discount_amount'].toString()) ?? 0;
-      }
-    } catch (e) {
-      print("Error cek voucher: $e");
-    }
-    return 0; // Tidak valid
-  }
-
   // =======================================================================
-  // 5. TRANSAKSI (CHECKOUT & PAYMENT)
+  // 4. TRANSAKSI (CHECKOUT & REDEEM)
   // =======================================================================
 
-  // Checkout Awal (Cart Check)
+  // Sesuai route /api/checkout
   Future<Map<String, dynamic>> checkout({
     required String customerId,
     required List<Map<String, dynamic>> items,
@@ -224,8 +179,13 @@ class ApiService {
     String paymentMethod = 'Cash',
   }) async {
     try {
+      // Pastikan item ID dalam keranjang juga String
       final processedItems = items.map((item) {
-        return {'id': item['id'].toString(), 'qty': item['qty']};
+        return {
+          'id': item['id'].toString(),
+          'qty': item['qty'],
+          // field lain jika perlu
+        };
       }).toList();
 
       final body = {
@@ -246,43 +206,7 @@ class ApiService {
     }
   }
 
-  // Finalisasi Transaksi (Payment)
-  Future<Map<String, dynamic>> createTransaction({
-    required String customerId,
-    required String customerName,
-    required double totalAmount,
-    required String paymentMethod,
-    required List<Map<String, dynamic>> items,
-    String? voucherCode,
-    String? tableNumber, // <--- TAMBAHKAN INI
-  }) async {
-    try {
-      final body = {
-        'customer_id': customerId,
-        'customer_name': customerName,
-        'final_price': totalAmount,
-        'payment_method': paymentMethod,
-        'items': items,
-        'voucher_code': voucherCode,
-        'table_number': tableNumber, // <--- KIRIM KE BACKEND
-        'status': 'PAID',
-      };
-
-      final response = await http.post(
-        Uri.parse('$baseUrl/checkout'),
-        headers: _headers,
-        body: jsonEncode(body),
-      );
-      return _processResponse(response);
-    } catch (e) {
-      print("Transaction API Error: $e");
-      return {'status': 'success', 'message': 'Transaksi berhasil (lokal)'};
-    }
-  }
-  // =======================================================================
-  // 6. POIN & REWARDS
-  // =======================================================================
-
+  // Sesuai route /api/redeem
   Future<Map<String, dynamic>> redeemPoints({
     required String customerId,
     required int points,
@@ -306,34 +230,39 @@ class ApiService {
     }
   }
 
-  Future<List<dynamic>> getRewards() async {
-    final data = await _getListData('$baseUrl/rewards');
+  // =======================================================================
+  // 5. KATALOG & KATEGORI
+  // =======================================================================
+
+  Future<List<dynamic>> getCategories() async {
+    return await _getListData('$baseUrl/categories');
+  }
+
+  Future<List<dynamic>> getCatalog({String? search, String? categoryId}) async {
+    List<String> queryParams = [];
+
+    if (search != null && search.isNotEmpty) {
+      queryParams.add('search=${Uri.encodeComponent(search)}');
+    }
+    if (categoryId != null && categoryId.isNotEmpty) {
+      queryParams.add('category_id=$categoryId');
+    }
+
+    String queryString = '';
+    if (queryParams.isNotEmpty) {
+      queryString = '?${queryParams.join('&')}';
+    }
+
+    final url = '$baseUrl/catalog$queryString';
+    final data = await _getListData(url);
+
     return data.map((item) {
       String pid = item['id'].toString();
       item['id'] = pid;
+      item['image_url'] = getProductImageUrl(pid);
+      item['rating'] = item['rating'] ?? 0.0;
       return item;
     }).toList();
-  }
-
-  Future<int> getUserPoints(String uid) async {
-    try {
-      final url = '$baseUrl/user_points/$uid';
-      final response = await http.get(Uri.parse(url));
-
-      // Parsing Manual agar lebih aman
-      if (response.statusCode == 200) {
-        final body = jsonDecode(response.body);
-
-        if (body['data'] != null && body['data']['points'] != null) {
-          // Konversi paksa ke Integer
-          return int.tryParse(body['data']['points'].toString()) ?? 0;
-        }
-      }
-      return 0;
-    } catch (e) {
-      print("Error get points: $e");
-      return 0;
-    }
   }
 
   // =======================================================================
@@ -344,6 +273,7 @@ class ApiService {
     try {
       final response = await http.get(Uri.parse(url), headers: _headers);
 
+      // Cek jika server mengembalikan HTML error (biasanya diawali <)
       if (response.body.trim().startsWith("<")) return [];
 
       if (response.statusCode == 200) {
@@ -354,7 +284,7 @@ class ApiService {
       }
       return [];
     } catch (e) {
-      print("API Error ($url): $e");
+      print("API Error: $e");
       return [];
     }
   }
@@ -387,21 +317,105 @@ class ApiService {
     }
   }
 
+  Future<int> getUserPoints(String userId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/user_points/$userId'),
+        headers: _headers,
+      );
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
+        if (json['status'] == 'success') {
+          return int.tryParse(json['data']['points'].toString()) ?? 0;
+        }
+      }
+    } catch (e) {
+      print("Error get points: $e");
+    }
+    return 0;
+  }
+
+  Future<List<dynamic>> getRewards() async {
+    return await _getListData('$baseUrl/rewards');
+  }
+
+  Future<Map<String, dynamic>> createTransaction({
+    required String customerId,
+    required String customerName,
+    required double totalAmount,
+    required String paymentMethod,
+    required List<Map<String, dynamic>> items,
+    String? voucherCode,
+    String? tableNumber,
+  }) async {
+    try {
+      final url = Uri.parse('$baseUrl/api/checkout');
+
+      final bodyData = {
+        'customer_id': customerId,
+        'customer_name': customerName,
+        'final_price': totalAmount,
+        'payment_method': paymentMethod,
+        'items': items,
+        'voucher_code': voucherCode,
+        'table_number': tableNumber ?? 'Take Away',
+      };
+
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(bodyData),
+      );
+
+      return jsonDecode(response.body);
+    } catch (e) {
+      print("Checkout Error: $e");
+      return {'status': 'error', 'message': 'Gagal memproses transaksi'};
+    }
+  }
+
   Future<List<dynamic>> getTransactionHistory(String customerName) async {
     try {
-      // Panggil endpoint /transactions
-      // Kita kirim parameter customer_name agar backend bisa filter
-      final url = '$baseUrl/transactions?customer_name=$customerName';
+      // Encode nama agar URL aman (misal: "Budi Santoso" -> "Budi%20Santoso")
+      final encodedName = Uri.encodeComponent(customerName);
+      final url = Uri.parse('$baseUrl/api/history/$encodedName');
 
-      final data = await _getListData(url);
+      final response = await http.get(url);
 
-      // DEBUG: Cek di console apakah data masuk
-      print("Data Transaksi dari API: ${data.length} item");
-
-      return data;
-    } catch (e) {
-      print("Error history: $e");
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body);
+        return body['data'] ?? [];
+      }
       return [];
+    } catch (e) {
+      print("Error History: $e");
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>?> registrasiPengguna(
+    String name,
+    String email,
+    String phone,
+    String password,
+  ) async {
+    try {
+      final url = Uri.parse('$baseUrl/api/registerpengguna');
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'name': name,
+          'email': email,
+          'phone': phone,
+          'password': password,
+        }),
+      );
+
+      return jsonDecode(response.body);
+    } catch (e) {
+      print("Register Error: $e");
+      return {'status': 'error', 'message': 'Koneksi gagal'};
     }
   }
 }
