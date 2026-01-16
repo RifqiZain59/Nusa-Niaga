@@ -1,12 +1,13 @@
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:nusaniaga/app/data/api_service.dart';
-import '../../Profile/controllers/profile_controller.dart';
 
 class PesanansayaController extends GetxController {
-  final ApiService apiService = ApiService(); // Public agar bisa diakses View
+  final ApiService apiService = ApiService();
+  final GetStorage _box = GetStorage();
 
-  var isLoading = true.obs;
   var allTransactions = <dynamic>[].obs;
+  var isLoading = false.obs;
 
   @override
   void onInit() {
@@ -15,29 +16,25 @@ class PesanansayaController extends GetxController {
   }
 
   Future<void> fetchHistory() async {
-    try {
-      isLoading(true);
+    isLoading.value = true;
 
-      // Ambil nama user
-      String userName = "Guest";
-      if (Get.isRegistered<ProfileController>()) {
-        userName = Get.find<ProfileController>().userProfile['name'] ?? "Guest";
+    // Ambil User ID dari Storage
+    var userData = _box.read('user_data');
+    String userId = userData?['id']?.toString() ?? '';
+
+    if (userId.isNotEmpty) {
+      try {
+        // Panggil API Transaction History
+        // Pastikan 'getTransactionHistory' ada di api_service.dart
+        var data = await apiService.getTransactionHistory(userId);
+        allTransactions.assignAll(data);
+      } catch (e) {
+        print("Error fetch history: $e");
       }
-
-      var data = await apiService.getTransactionHistory(userName);
-
-      // Urutkan dari yang terbaru
-      data.sort((a, b) {
-        DateTime dateA = DateTime.tryParse(a['date'] ?? '') ?? DateTime(2000);
-        DateTime dateB = DateTime.tryParse(b['date'] ?? '') ?? DateTime(2000);
-        return dateB.compareTo(dateA);
-      });
-
-      allTransactions.assignAll(data);
-    } catch (e) {
-      print("Error fetch history: $e");
-    } finally {
-      isLoading(false);
+    } else {
+      print("User ID kosong / Belum Login");
     }
+
+    isLoading.value = false;
   }
 }

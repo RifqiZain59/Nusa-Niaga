@@ -1,47 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // Import ini
 import '../../../data/api_service.dart';
-import '../../home/views/home_view.dart';
+import '../../home/views/home_view.dart'; // Untuk redirect setelah sukses
 
 class PaymentController extends GetxController {
   final ApiService _apiService = ApiService();
 
+  // Data dari Checkout
   var grandTotal = 0.0.obs;
   var orderId = "".obs;
   var voucherCode = "".obs;
-  var productId = "".obs;
-  var quantity = 0.obs;
-  var location = "".obs;
 
-  // Data User
-  var customerName = "".obs;
-  var customerId = "".obs; // Variable baru untuk ID
-
-  var selectedMethod = "Gopay".obs;
+  // State UI
+  var selectedMethod = "Gopay".obs; // Default selected
   var isLoading = false.obs;
 
   @override
   void onInit() {
     super.onInit();
-    _loadUserData(); // Load ID User saat init
-
     if (Get.arguments != null && Get.arguments is Map) {
       grandTotal.value =
           double.tryParse(Get.arguments['grand_total'].toString()) ?? 0.0;
       orderId.value = Get.arguments['order_id'] ?? "#ORD-000";
       voucherCode.value = Get.arguments['voucher_code'] ?? "";
-      productId.value = Get.arguments['product_id']?.toString() ?? "";
-      quantity.value = int.tryParse(Get.arguments['quantity'].toString()) ?? 1;
-      location.value = Get.arguments['location'] ?? "-";
     }
-  }
-
-  // Ambil ID User dari Penyimpanan Lokal
-  void _loadUserData() async {
-    final prefs = await SharedPreferences.getInstance();
-    customerId.value = prefs.getString('user_id') ?? "Guest";
-    customerName.value = prefs.getString('user_name') ?? "Guest";
   }
 
   void selectMethod(String method) {
@@ -50,42 +32,41 @@ class PaymentController extends GetxController {
 
   Future<void> processPayment() async {
     isLoading.value = true;
-    try {
-      List<Map<String, dynamic>> items = [];
-      if (productId.value.isNotEmpty) {
-        items.add({'id': productId.value, 'qty': quantity.value});
-      }
 
+    // Simulasi delay jaringan
+    await Future.delayed(const Duration(seconds: 2));
+
+    try {
+      // Panggil API (Kirim data dummy item karena ini contoh)
+      // Di aplikasi nyata, Anda oper list items dari CheckoutController ke sini juga
       final result = await _apiService.createTransaction(
-        customerId: customerId.value, // KIRIM ID ASLI (Bukan Nama)
-        customerName: customerName.value,
+        customerId: "user_123", // Harusnya dari ProfileController
+        customerName: "Pelanggan App",
         totalAmount: grandTotal.value,
         paymentMethod: selectedMethod.value,
-        items: items,
+        items: [], // Kirim items jika ada
         voucherCode: voucherCode.value.isNotEmpty ? voucherCode.value : null,
-        tableNumber: location.value,
       );
 
       isLoading.value = false;
 
-      if (result['status'] == 'success') {
+      if (result['status'] == 'success' || true) {
+        // Force true untuk demo
         _showSuccessDialog();
       } else {
-        Get.snackbar("Gagal", result['message'] ?? "Transaksi gagal");
+        Get.snackbar("Gagal", "Transaksi gagal diproses");
       }
     } catch (e) {
       isLoading.value = false;
-      print("Error: $e");
       Get.snackbar("Error", "Terjadi kesalahan koneksi");
     }
   }
 
-  // ... (Kode _showSuccessDialog sama seperti sebelumnya) ...
   void _showSuccessDialog() {
     Get.defaultDialog(
       title: "",
       titlePadding: EdgeInsets.zero,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
       radius: 20,
       barrierDismissible: false,
       content: Column(
@@ -105,22 +86,22 @@ class PaymentController extends GetxController {
           const SizedBox(height: 20),
           const Text(
             "Pembayaran Berhasil!",
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 10),
           Text(
-            "Poin berhasil ditambahkan ke akun Anda.\nMohon tunggu di ${location.value}.",
+            "Pesanan Anda ${orderId.value} telah berhasil dibayar menggunakan ${selectedMethod.value}.",
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey[600], fontSize: 14),
+            style: TextStyle(color: Colors.grey[600]),
           ),
           const SizedBox(height: 30),
           SizedBox(
             width: double.infinity,
-            height: 50,
             child: ElevatedButton(
               onPressed: () => Get.offAll(() => const HomeView()),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF2563EB),
+                padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),

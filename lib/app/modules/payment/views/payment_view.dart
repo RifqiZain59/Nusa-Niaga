@@ -6,36 +6,27 @@ import '../controllers/payment_controller.dart';
 class PaymentView extends GetView<PaymentController> {
   const PaymentView({super.key});
 
-  // --- KONSTANTA WARNA ---
+  // Warna Konsisten
   static const Color _primaryColor = Color(0xFF2563EB);
   static const Color _bgColor = Color(0xFFF5F7FA);
   static const Color _cardColor = Colors.white;
   static const Color _textDark = Color(0xFF1F2937);
 
-  // --- HELPER FORMAT RUPIAH ---
+  // Helper Format Rupiah
   String formatRupiah(double number) {
-    try {
-      String str = number.toInt().toString();
-      RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
-      return "Rp ${str.replaceAllMapped(reg, (Match m) => '${m[1]}.')}";
-    } catch (e) {
-      return "Rp 0";
-    }
+    String str = number.toInt().toString();
+    RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
+    return "Rp ${str.replaceAllMapped(reg, (Match m) => '${m[1]}.')}";
   }
 
   @override
   Widget build(BuildContext context) {
-    // Inject Controller dengan aman
     if (!Get.isRegistered<PaymentController>()) {
       Get.put(PaymentController());
     }
 
     return Scaffold(
       backgroundColor: _bgColor,
-      // --- PERBAIKAN UTAMA DISINI ---
-      // Mencegah error "Scaffold.geometryOf" saat transisi halaman/keyboard
-      resizeToAvoidBottomInset: false,
-      // -----------------------------
       appBar: AppBar(
         title: const Text(
           'Pembayaran',
@@ -57,8 +48,68 @@ class PaymentView extends GetView<PaymentController> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 1. KARTU TOTAL TAGIHAN
-                  _buildTotalCard(),
+                  // 1. Total Tagihan Card
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [_primaryColor, Color(0xFF1E40AF)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _primaryColor.withOpacity(0.3),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          "Total Tagihan",
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.8),
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Obx(
+                          () => Text(
+                            formatRupiah(controller.grandTotal.value),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 32,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Obx(
+                            () => Text(
+                              "Order ID: ${controller.orderId.value}",
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
 
                   const SizedBox(height: 30),
                   const Text(
@@ -71,7 +122,7 @@ class PaymentView extends GetView<PaymentController> {
                   ),
                   const SizedBox(height: 15),
 
-                  // 2. E-WALLET SECTION
+                  // 2. E-Wallet Section
                   _buildPaymentGroup("E-Wallet", [
                     _paymentOption(
                       "Gopay",
@@ -87,7 +138,7 @@ class PaymentView extends GetView<PaymentController> {
 
                   const SizedBox(height: 20),
 
-                  // 3. TRANSFER & LAINNYA
+                  // 3. Bank Transfer Section
                   _buildPaymentGroup("Transfer & Lainnya", [
                     _paymentOption(
                       "BCA Virtual Account",
@@ -108,67 +159,69 @@ class PaymentView extends GetView<PaymentController> {
             ),
           ),
 
-          // BOTTOM BAR (TOMBOL BAYAR)
-          _buildBottomBar(),
-        ],
-      ),
-    );
-  }
-
-  // =========================================================
-  // WIDGET BUILDER METHODS
-  // =========================================================
-
-  Widget _buildTotalCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [_primaryColor, Color(0xFF1E40AF)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: _primaryColor.withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Text(
-            "Total Tagihan",
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.8),
-              fontSize: 14,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Obx(
-            () => Text(
-              formatRupiah(controller.grandTotal.value),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 32,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
+          // BOTTOM BAR
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(20),
+              color: Colors.white,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 20,
+                  offset: const Offset(0, -5),
+                ),
+              ],
             ),
-            child: Obx(
-              () => Text(
-                "Order ID: ${controller.orderId.value}",
-                style: const TextStyle(color: Colors.white, fontSize: 12),
+            child: SafeArea(
+              child: Obx(
+                () => SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: controller.isLoading.value
+                        ? null
+                        : () => controller.processPayment(),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _primaryColor,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      elevation: 5,
+                      shadowColor: _primaryColor.withOpacity(0.4),
+                    ),
+                    child: controller.isLoading.value
+                        ? const SizedBox(
+                            height: 24,
+                            width: 24,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Ionicons.lock_closed,
+                                size: 20,
+                                color: Colors.white,
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                "Bayar ${formatRupiah(controller.grandTotal.value)}",
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
               ),
             ),
           ),
@@ -177,71 +230,7 @@ class PaymentView extends GetView<PaymentController> {
     );
   }
 
-  Widget _buildBottomBar() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 20,
-            offset: const Offset(0, -5),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Obx(
-          () => SizedBox(
-            width: double.infinity,
-            height: 56,
-            child: ElevatedButton(
-              onPressed: controller.isLoading.value
-                  ? null
-                  : () => controller.processPayment(),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _primaryColor,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                elevation: 5,
-                shadowColor: _primaryColor.withOpacity(0.4),
-              ),
-              child: controller.isLoading.value
-                  ? const SizedBox(
-                      height: 24,
-                      width: 24,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2,
-                      ),
-                    )
-                  : Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Ionicons.lock_closed,
-                          size: 20,
-                          color: Colors.white,
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                          "Bayar ${formatRupiah(controller.grandTotal.value)}",
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  // --- WIDGET HELPERS ---
 
   Widget _buildPaymentGroup(String title, List<Widget> children) {
     return Column(
@@ -294,6 +283,7 @@ class PaymentView extends GetView<PaymentController> {
           ),
           child: Row(
             children: [
+              // Icon Container
               Container(
                 width: 50,
                 height: 50,
@@ -303,17 +293,8 @@ class PaymentView extends GetView<PaymentController> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: isImage
-                    ? Image.asset(
-                        asset,
-                        fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) =>
-                            const Icon(Icons.broken_image, color: Colors.grey),
-                      )
-                    : Icon(
-                        icon ?? Icons.help_outline,
-                        color: Colors.black87,
-                        size: 24,
-                      ),
+                    ? Image.asset(asset, fit: BoxFit.contain)
+                    : Icon(icon, color: Colors.black87, size: 24),
               ),
               const SizedBox(width: 16),
               Expanded(

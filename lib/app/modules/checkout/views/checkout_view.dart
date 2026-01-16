@@ -6,19 +6,14 @@ import '../controllers/checkout_controller.dart';
 class CheckoutView extends GetView<CheckoutController> {
   const CheckoutView({super.key});
 
-  // --- PALET WARNA ---
-  static const Color _primaryColor = Color(0xFF2563EB); // Biru Modern
-  static const Color _bgColor = Color(0xFFF5F7FA); // Abu-abu sangat muda
+  static const Color _primaryColor = Color(0xFF2563EB);
+  static const Color _bgColor = Color(0xFFF5F7FA);
   static const Color _cardColor = Colors.white;
   static const Color _textDark = Color(0xFF1F2937);
   static const Color _textGrey = Color(0xFF6B7280);
-
-  // Helper Format Rupiah
-  String formatRupiah(double number) {
-    String str = number.toInt().toString();
-    RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
-    return "Rp ${str.replaceAllMapped(reg, (Match m) => '${m[1]}.')}";
-  }
+  static const Color _dangerColor = Color(
+    0xFFEF4444,
+  ); // Warna Merah untuk Hapus
 
   @override
   Widget build(BuildContext context) {
@@ -47,7 +42,6 @@ class CheckoutView extends GetView<CheckoutController> {
       ),
       body: Column(
         children: [
-          // KONTEN SCROLLABLE
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(20.0),
@@ -55,7 +49,7 @@ class CheckoutView extends GetView<CheckoutController> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 1. SECTION INFO PEMESAN (OTOMATIS)
+                  // 1. INFO PEMESAN
                   _buildSectionTitle("Informasi Pemesan"),
                   Container(
                     padding: const EdgeInsets.all(16),
@@ -87,7 +81,6 @@ class CheckoutView extends GetView<CheckoutController> {
                                 ),
                               ),
                               const SizedBox(height: 4),
-                              // DATA OTOMATIS DARI CONTROLLER
                               Obx(
                                 () => Text(
                                   controller.userName.value,
@@ -112,7 +105,7 @@ class CheckoutView extends GetView<CheckoutController> {
 
                   const SizedBox(height: 20),
 
-                  // 2. SECTION LOKASI MEJA (INPUT)
+                  // 2. LOKASI
                   _buildSectionTitle("Lokasi Pengantaran"),
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -147,7 +140,7 @@ class CheckoutView extends GetView<CheckoutController> {
 
                   const SizedBox(height: 20),
 
-                  // 3. SECTION ITEM PRODUK
+                  // 3. DETAIL ITEM
                   _buildSectionTitle("Detail Item"),
                   Obx(() {
                     if (controller.orderData.isEmpty) return const SizedBox();
@@ -157,10 +150,7 @@ class CheckoutView extends GetView<CheckoutController> {
                         controller.orderData['image'] ??
                         '';
                     String name = controller.orderData['name'] ?? '-';
-                    String cat =
-                        controller.orderData['category'] ??
-                        controller.orderData['type'] ??
-                        'Menu';
+                    String cat = controller.orderData['category'] ?? 'Menu';
 
                     return Container(
                       padding: const EdgeInsets.all(12),
@@ -169,29 +159,17 @@ class CheckoutView extends GetView<CheckoutController> {
                         children: [
                           ClipRRect(
                             borderRadius: BorderRadius.circular(12),
-                            child: img.startsWith('http')
-                                ? Image.network(
-                                    img,
-                                    width: 70,
-                                    height: 70,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (c, e, s) => Container(
-                                      width: 70,
-                                      height: 70,
-                                      color: Colors.grey[200],
-                                    ),
-                                  )
-                                : Image.asset(
-                                    img,
-                                    width: 70,
-                                    height: 70,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (c, e, s) => Container(
-                                      width: 70,
-                                      height: 70,
-                                      color: Colors.grey[200],
-                                    ),
-                                  ),
+                            child: Image.network(
+                              img,
+                              width: 70,
+                              height: 70,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Container(
+                                color: Colors.grey[200],
+                                width: 70,
+                                height: 70,
+                              ),
+                            ),
                           ),
                           const SizedBox(width: 16),
                           Expanded(
@@ -216,7 +194,7 @@ class CheckoutView extends GetView<CheckoutController> {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  "${controller.quantity.value} x ${formatRupiah(controller.itemPrice.value)}",
+                                  "${controller.quantity.value} x ${controller.formatRupiah(controller.itemPrice.value)}",
                                   style: const TextStyle(
                                     color: _primaryColor,
                                     fontWeight: FontWeight.w600,
@@ -232,93 +210,150 @@ class CheckoutView extends GetView<CheckoutController> {
 
                   const SizedBox(height: 20),
 
-                  // 4. SECTION VOUCHER
+                  // 4. PROMO & VOUCHER (UPDATE: Tombol Hapus/Pakai)
                   _buildSectionTitle("Promo & Voucher"),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,
-                      vertical: 12,
+                      vertical: 8,
                     ),
                     decoration: _boxDecoration(),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Ionicons.ticket_outline,
-                          color: Colors.orange,
-                        ),
-                        const SizedBox(width: 12),
-                        const Expanded(
-                          child: Text(
-                            "Gunakan / masukkan kode promo",
-                            style: TextStyle(color: _textGrey, fontSize: 14),
+                    child: Obx(() {
+                      final isApplied =
+                          controller.isPromoApplied.value; // Cek status promo
+                      final isFilled = controller.isPromoFilled.value;
+
+                      return Row(
+                        children: [
+                          Icon(
+                            Ionicons.ticket_outline,
+                            color: isApplied ? _primaryColor : Colors.orange,
                           ),
-                        ),
-                        Icon(Ionicons.chevron_forward, color: Colors.grey[300]),
-                      ],
-                    ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: TextField(
+                              controller: controller.promoController,
+                              readOnly:
+                                  isApplied, // Kunci input jika promo sedang dipakai
+                              decoration: InputDecoration(
+                                hintText: isApplied
+                                    ? 'Promo Digunakan'
+                                    : 'Kode Promo (Cth: HEMAT)',
+                                border: InputBorder.none,
+                                hintStyle: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: isApplied ? _primaryColor : _textDark,
+                              ),
+                            ),
+                          ),
+                          // TOMBOL DINAMIS (HAPUS / PAKAI)
+                          SizedBox(
+                            height: 36,
+                            child: ElevatedButton(
+                              onPressed: isApplied
+                                  ? () => controller
+                                        .removePromo() // Jika aktif -> Hapus
+                                  : (isFilled
+                                        ? () => controller.applyPromo()
+                                        : null), // Jika tidak -> Pakai (kalau ada isi)
+
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: isApplied
+                                    ? _dangerColor // Merah jika tombol Hapus
+                                    : (isFilled
+                                          ? _primaryColor
+                                          : Colors
+                                                .grey[300]), // Biru/Abu jika Pakai
+                                foregroundColor: (isApplied || isFilled)
+                                    ? Colors.white
+                                    : Colors.grey,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                ),
+                              ),
+                              child: Text(
+                                isApplied ? "Hapus" : "Pakai",
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    }),
                   ),
 
                   const SizedBox(height: 20),
 
-                  // 5. SECTION RINGKASAN PEMBAYARAN (STRUK)
+                  // 5. RINGKASAN PEMBAYARAN
                   _buildSectionTitle("Ringkasan Pembayaran"),
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: _boxDecoration(),
-                    child: Column(
-                      children: [
-                        _buildSummaryRow(
-                          "Subtotal",
-                          formatRupiah(controller.subTotal.value),
-                        ),
-                        const SizedBox(height: 12),
-                        _buildSummaryRow(
-                          "Pajak (11%)",
-                          formatRupiah(controller.tax.value),
-                        ),
-                        const SizedBox(height: 12),
-                        _buildSummaryRow("Diskon", "-Rp 0", isGreen: true),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 16),
-                          child: Divider(
-                            height: 1,
-                            color: Colors.grey,
-                          ), // Garis putus-putus lookalike
-                        ),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              "Total Pembayaran",
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
+                    child: Obx(
+                      () => Column(
+                        children: [
+                          _buildSummaryRow(
+                            "Subtotal",
+                            controller.formatRupiah(controller.subTotal.value),
+                          ),
+                          const SizedBox(height: 12),
+
+                          // Baris Diskon
+                          _buildSummaryRow(
+                            "Diskon",
+                            "-${controller.formatRupiah(controller.discount.value)}",
+                            isGreen: true,
+                          ),
+
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            child: Divider(height: 1, color: Colors.grey),
+                          ),
+
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                "Total Pembayaran",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
                               ),
-                            ),
-                            Obx(
-                              () => Text(
-                                formatRupiah(controller.grandTotal.value),
+                              Text(
+                                controller.formatRupiah(
+                                  controller.grandTotal.value,
+                                ),
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 18,
                                   color: _primaryColor,
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ],
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                  const SizedBox(
-                    height: 100,
-                  ), // Spacer agar tidak tertutup tombol
+                  const SizedBox(height: 100),
                 ],
               ),
             ),
           ),
 
-          // BOTTOM BAR (STICKY)
+          // BOTTOM BAR
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
@@ -337,11 +372,15 @@ class CheckoutView extends GetView<CheckoutController> {
             child: SafeArea(
               child: Obx(() {
                 final isEnabled = controller.isContinueEnabled.value;
+                final isLoading = controller.isLoading.value;
+
                 return SizedBox(
                   width: double.infinity,
                   height: 56,
                   child: ElevatedButton(
-                    onPressed: isEnabled ? controller.goToPayment : null,
+                    onPressed: (isEnabled && !isLoading)
+                        ? () => controller.processCheckout()
+                        : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: isEnabled
                           ? _primaryColor
@@ -355,20 +394,29 @@ class CheckoutView extends GetView<CheckoutController> {
                       elevation: isEnabled ? 5 : 0,
                       shadowColor: _primaryColor.withOpacity(0.4),
                     ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          "Lanjut Pembayaran",
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                    child: isLoading
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                "Lanjut Pembayaran",
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              SizedBox(width: 8),
+                              Icon(Ionicons.arrow_forward, size: 20),
+                            ],
                           ),
-                        ),
-                        SizedBox(width: 8),
-                        Icon(Ionicons.arrow_forward, size: 20),
-                      ],
-                    ),
                   ),
                 );
               }),
@@ -378,8 +426,6 @@ class CheckoutView extends GetView<CheckoutController> {
       ),
     );
   }
-
-  // --- WIDGET HELPERS ---
 
   BoxDecoration _boxDecoration() {
     return BoxDecoration(

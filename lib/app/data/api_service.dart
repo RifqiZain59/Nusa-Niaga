@@ -297,12 +297,11 @@ class ApiService {
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/user_points/$userId'),
-        headers: _headers,
       );
       if (response.statusCode == 200) {
-        final json = jsonDecode(response.body);
-        if (json['status'] == 'success' && json['data'] != null) {
-          return int.tryParse(json['data']['points'].toString()) ?? 0;
+        final data = json.decode(response.body);
+        if (data['status'] == 'success') {
+          return int.tryParse(data['data']['points'].toString()) ?? 0;
         }
       }
     } catch (e) {
@@ -316,18 +315,23 @@ class ApiService {
   }
 
   // PERBAIKAN: Menggunakan endpoint /transactions dengan query param
-  Future<List<dynamic>> getTransactionHistory(String customerName) async {
+  Future<List<dynamic>> getTransactionHistory(String userId) async {
     try {
-      final encodedName = Uri.encodeComponent(customerName);
-      return await _getListData(
-        '$baseUrl/transactions?customer_name=$encodedName',
+      final response = await http.get(
+        Uri.parse('$baseUrl/transaction_history/$userId'),
       );
-    } catch (e) {
-      print("Error History: $e");
-      return [];
-    }
-  }
 
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['status'] == 'success') {
+          return data['data'] as List<dynamic>;
+        }
+      }
+    } catch (e) {
+      print("Error get history: $e");
+    }
+    return [];
+  }
   // =======================================================================
   // 5. KATALOG & KATEGORI
   // =======================================================================
