@@ -1,24 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:nusaniaga/app/data/api_service.dart';
+
+// Import ProfileController
 import '../../Profile/controllers/profile_controller.dart';
 
 class CheckoutController extends GetxController {
   final ApiService _apiService = ApiService();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // --- INPUT CONTROLLER ---
+  // --- INPUT CONTROLLERS ---
   final TextEditingController lokasiPemesananController =
       TextEditingController();
   final TextEditingController promoController = TextEditingController();
 
-  // --- VARIABLES ---
+  // --- STATE VARIABLES ---
   var isContinueEnabled = false.obs;
   var isPromoFilled = false.obs;
-  var isPromoApplied =
-      false.obs; // <--- STATUS BARU: Cek apakah promo sedang dipakai
+  var isPromoApplied = false.obs;
   var isLoading = false.obs;
+
+  // Variabel Metode Pembayaran
+  var selectedPaymentMethod = 'Cash'.obs;
 
   // --- DATA ---
   var availableVouchers = <dynamic>[].obs;
@@ -32,13 +37,15 @@ class CheckoutController extends GetxController {
   var grandTotal = 0.0.obs;
 
   // --- USER INFO ---
-  var userName = "Guest".obs;
+  var userName = "Loading...".obs;
   var userId = "".obs;
+
+  // [BARU] Simpan base64 lokal untuk UI saja, tidak dikirim ke API
+  String? _localImageBase64;
 
   @override
   void onInit() {
     super.onInit();
-
     lokasiPemesananController.addListener(_validateForm);
     promoController.addListener(() {
       isPromoFilled.value = promoController.text.isNotEmpty;
@@ -49,7 +56,38 @@ class CheckoutController extends GetxController {
     _fetchVouchersFromApi();
   }
 
-  // --- 1. LOAD DATA ---
+  void changePaymentMethod(String method) {
+    selectedPaymentMethod.value = method;
+  }
+
+  // --- 1. LOAD USER DATA ---
+  void _loadUserData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      String savedId = prefs.getString('user_id') ?? '';
+      String savedName = prefs.getString('user_name') ?? '';
+
+      if (savedId.isNotEmpty) {
+        userId.value = savedId;
+        userName.value = savedName;
+      } else {
+        if (Get.isRegistered<ProfileController>()) {
+          final profile = Get.find<ProfileController>().userProfile;
+          userName.value = profile['name'] ?? "Pelanggan";
+          userId.value = profile['id'] ?? "";
+        } else {
+          Get.put(ProfileController());
+          final profile = Get.find<ProfileController>().userProfile;
+          userName.value = profile['name'] ?? "Pelanggan";
+        }
+      }
+    } catch (e) {
+      print("Error load user: $e");
+      userName.value = "Pelanggan";
+    }
+  }
+
+  // --- 2. LOAD DATA PESANAN ---
   void _loadInitialOrderData() {
     if (Get.arguments != null) {
       orderData.assignAll(Get.arguments);
@@ -78,7 +116,12 @@ class CheckoutController extends GetxController {
         var data = doc.data()!;
         orderData['category'] = data['category'] ?? 'Umum';
         orderData['name'] = data['name'];
-        orderData['image_base64'] = data['image_base64'];
+
+        // Simpan gambar ke variabel lokal controller (hanya untuk UI)
+        _localImageBase64 = data['image_base64'];
+
+        // Update UI agar gambar muncul di halaman Checkout ini
+        orderData['image_base64'] = _localImageBase64;
         orderData.refresh();
       }
     } catch (e) {
@@ -95,7 +138,7 @@ class CheckoutController extends GetxController {
     }
   }
 
-  // --- 2. LOGIKA PROMO (UPDATE) ---
+  // --- 3. LOGIKA PROMO ---
   void applyPromo() {
     String inputCode = promoController.text.trim().toUpperCase();
     discount.value = 0.0;
@@ -113,7 +156,7 @@ class CheckoutController extends GetxController {
 
       if (promoAmount > 0) {
         discount.value = promoAmount;
-        isPromoApplied.value = true; // <--- Set Promo Aktif
+        isPromoApplied.value = true;
         Get.snackbar(
           "Berhasil",
           "Potongan Rp ${formatRupiah(promoAmount)} diterapkan!",
@@ -121,16 +164,11 @@ class CheckoutController extends GetxController {
           colorText: Colors.white,
         );
       } else {
-        Get.snackbar(
-          "Gagal",
-          "Voucher valid tapi nominal 0",
-          backgroundColor: Colors.orange,
-          colorText: Colors.white,
-        );
+        Get.snackbar("Gagal", "Voucher valid tapi nominal 0");
       }
     } else if (inputCode == 'HEMAT') {
       discount.value = 5000.0;
-      isPromoApplied.value = true; // <--- Set Promo Aktif
+      isPromoApplied.value = true;
       Get.snackbar(
         "Info",
         "Kode Test HEMAT Berhasil!",
@@ -145,22 +183,19 @@ class CheckoutController extends GetxController {
         colorText: Colors.white,
       );
     }
-
     calculateTotal();
   }
 
-  // --- 3. HAPUS PROMO (BARU) ---
   void removePromo() {
-    promoController.clear(); // Kosongkan text field
-    discount.value = 0.0; // Reset diskon
-    isPromoApplied.value = false; // Set status tidak aktif
-    calculateTotal(); // Hitung ulang harga normal
+    promoController.clear();
+    discount.value = 0.0;
+    isPromoApplied.value = false;
+    calculateTotal();
     Get.snackbar(
       "Info",
       "Penggunaan voucher dibatalkan",
       backgroundColor: Colors.orange,
       colorText: Colors.white,
-      snackPosition: SnackPosition.TOP,
     );
   }
 
@@ -171,54 +206,80 @@ class CheckoutController extends GetxController {
     grandTotal.value = total < 0 ? 0 : total;
   }
 
-  // --- 5. CHECKOUT ---
+  // --- 5. PROSES CHECKOUT (API CALL) ---
   Future<void> processCheckout() async {
     if (grandTotal.value <= 0 && discount.value == 0 && itemPrice.value > 0)
       return;
+
     isLoading.value = true;
 
     try {
-      String orderId = 'TRX-${DateTime.now().millisecondsSinceEpoch}';
-
-      Map<String, dynamic> trxData = {
-        'order_id': orderId,
-        'user_id': userId.value,
-        'customer_name': userName.value,
-        'table_number': lokasiPemesananController.text,
-        'items': [
-          {
-            'product_id': orderData['id'],
-            'product_name': orderData['name'],
-            'category': orderData['category'] ?? 'Umum',
-            'price': itemPrice.value,
-            'qty': quantity.value,
-            'image': orderData['image_url'] ?? orderData['image'],
-          },
-        ],
-        'summary': {
-          'sub_total': subTotal.value,
-          'tax': 0,
-          'discount': discount.value,
-          'grand_total': grandTotal.value,
+      // 1. Siapkan Item untuk dikirim ke API
+      // [PERUBAHAN]: image_base64 TIDAK dimasukkan ke sini agar payload ringan
+      List<Map<String, dynamic>> itemsToSend = [
+        {
+          'id': orderData['id'],
+          'product_id': orderData['id'],
+          'product_name': orderData['name'],
+          'qty': quantity.value,
+          'price': itemPrice.value,
         },
-        'voucher_code': isPromoApplied.value
-            ? promoController.text
-            : null, // Hanya kirim jika aktif
-        'status': 'pending',
-        'created_at': FieldValue.serverTimestamp(),
-      };
+      ];
 
-      await _firestore.collection('transactions').doc(orderId).set(trxData);
-
-      Get.toNamed(
-        '/payment',
-        arguments: {
-          'grand_total': grandTotal.value,
-          'order_id': orderId,
-          'transaction_data': trxData,
-        },
+      // 2. Panggil API Checkout
+      final response = await _apiService.checkout(
+        customerId: userId.value,
+        items: itemsToSend,
+        voucherCode: isPromoApplied.value ? promoController.text : null,
+        paymentMethod: selectedPaymentMethod.value,
+        tableNumber: lokasiPemesananController.text,
+        discount: discount.value,
       );
+
+      // 3. Handle Response
+      if (response['status'] == 'success') {
+        String orderId = response['data']['order_id'] ?? 'TRX-UNKNOWN';
+
+        // [PENTING] Data untuk halaman Payment (Receipt)
+        // Kita MASUKKAN LAGI image_base64 dari variabel lokal (_localImageBase64)
+        // agar di halaman Payment gambar tetap muncul tanpa perlu download ulang.
+        Map<String, dynamic> transactionDisplayData = {
+          'order_id': orderId,
+          'table_number': lokasiPemesananController.text,
+          'payment_method': selectedPaymentMethod.value,
+          'items': [
+            {
+              ...itemsToSend[0],
+              'image_base64':
+                  _localImageBase64, // Pasang kembali gambar lokal di sini
+            },
+          ],
+          'summary': {
+            'sub_total': subTotal.value,
+            'discount': discount.value,
+            'grand_total': grandTotal.value,
+          },
+        };
+
+        // Pindah ke Halaman Payment
+        Get.offNamed(
+          '/payment',
+          arguments: {
+            'grand_total': grandTotal.value,
+            'order_id': orderId,
+            'transaction_data': transactionDisplayData,
+          },
+        );
+      } else {
+        Get.snackbar(
+          "Gagal Checkout",
+          response['message'] ?? "Terjadi kesalahan server",
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+      }
     } catch (e) {
+      print("Checkout Error: $e");
       Get.snackbar(
         "Error",
         "Gagal checkout: $e",
@@ -227,23 +288,6 @@ class CheckoutController extends GetxController {
       );
     } finally {
       isLoading.value = false;
-    }
-  }
-
-  void _loadUserData() {
-    try {
-      if (Get.isRegistered<ProfileController>()) {
-        final profile = Get.find<ProfileController>().userProfile;
-        userName.value = profile['name'] ?? "Pelanggan";
-        userId.value = profile['id'] ?? "";
-      } else {
-        Get.put(ProfileController());
-        final profile = Get.find<ProfileController>().userProfile;
-        userName.value = profile['name'] ?? "Pelanggan";
-        userId.value = profile['id'] ?? "";
-      }
-    } catch (_) {
-      userName.value = "Pelanggan";
     }
   }
 

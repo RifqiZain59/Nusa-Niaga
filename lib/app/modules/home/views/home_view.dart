@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -5,6 +6,7 @@ import 'package:ionicons/ionicons.dart';
 
 // Import Controller
 import 'package:nusaniaga/app/modules/home/controllers/home_controller.dart';
+import 'package:nusaniaga/app/modules/detail_menu/controllers/detail_menu_controller.dart';
 
 // Import Views Lain
 import 'package:nusaniaga/app/modules/Poin/views/poin_view.dart';
@@ -14,19 +16,23 @@ import 'package:nusaniaga/app/modules/checkout/views/checkout_view.dart';
 import 'package:nusaniaga/app/modules/detail_menu/views/detail_menu_view.dart';
 
 // --- WARNA & HELPER ---
-const Color _kPrimaryColor = Color(0xFF0D47A1);
-const Color _kSecondaryColor = Color(0xFF42A5F5);
-const Color _kBackgroundColor = Color(0xFFF0F4F8);
-const Color _kAccentColor = Color(0xFFFFA000);
+const Color _kPrimaryColor = Color(0xFF2563EB);
+const Color _kSecondaryColor = Color(0xFF3B82F6);
+const Color _kBackgroundColor = Color(0xFFF8FAFC);
+const Color _kAccentColor = Color(0xFFFBBF24);
 
 String formatRupiah(dynamic number) {
   if (number == null) return "Rp 0";
   int value = 0;
-  if (number is String) {
-    String clean = number.replaceAll(RegExp(r'[^0-9]'), '');
-    value = int.tryParse(clean) ?? 0;
-  } else if (number is num) {
-    value = number.toInt();
+  try {
+    if (number is num) {
+      value = number.toInt();
+    } else {
+      String clean = number.toString().replaceAll(RegExp(r'[^0-9]'), '');
+      value = int.tryParse(clean) ?? 0;
+    }
+  } catch (e) {
+    value = 0;
   }
   String str = value.toString();
   RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
@@ -73,9 +79,10 @@ class _HomeViewState extends State<HomeView> {
           width: 65,
           height: 65,
           child: FloatingActionButton(
+            heroTag: 'home_cart_fab',
             onPressed: () => Get.to(() => const CheckoutView()),
             backgroundColor: _kSecondaryColor,
-            elevation: 4,
+            elevation: 8,
             shape: const CircleBorder(),
             child: const Icon(
               Ionicons.bag_handle,
@@ -87,10 +94,9 @@ class _HomeViewState extends State<HomeView> {
         floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
         bottomNavigationBar: BottomAppBar(
           shape: const CircularNotchedRectangle(),
-          notchMargin: 8.0,
+          notchMargin: 10.0,
           color: Colors.white,
-          surfaceTintColor: Colors.white,
-          elevation: 15,
+          elevation: 20,
           height: 70,
           padding: EdgeInsets.zero,
           child: Row(
@@ -135,26 +141,27 @@ class _HomeViewState extends State<HomeView> {
   Widget _buildHomeContent() {
     return Obx(() {
       final slides = controller.banners
-          .map((b) => {'image': b['image_url'] ?? ''})
+          .map((b) => {'image': b['image_url'] ?? b['image'] ?? ''})
           .toList();
 
-      final categories = controller.categoryList.toList();
-      final selectedCategory = controller.selectedCategory.value;
-
       final displayProducts = controller.filteredProducts.map((product) {
-        // --- LOGIKA RATING ASLI DARI DATABASE ---
         double realRating = 0.0;
         if (product['rating'] != null) {
           realRating = double.tryParse(product['rating'].toString()) ?? 0.0;
         }
+        double realPrice = 0.0;
+        if (product['price'] != null) {
+          realPrice = double.tryParse(product['price'].toString()) ?? 0.0;
+        }
+        String imgUrl = product['image_url'] ?? product['image'] ?? '';
 
         return {
           'id': product['id'].toString(),
           'name': product['name'] ?? 'Tanpa Nama',
           'type': product['category'] ?? 'Umum',
-          'price': product['price'] ?? 0,
-          'rating': realRating, // Rating asli (bukan dummy)
-          'image': product['image_url'] ?? '',
+          'price': realPrice,
+          'rating': realRating,
+          'image': imgUrl,
           'description': product['description'] ?? '',
           'stock': product['stock'] ?? 0,
           'is_favorite': product['is_favorite'] ?? false,
@@ -162,84 +169,107 @@ class _HomeViewState extends State<HomeView> {
       }).toList();
 
       return RefreshIndicator(
-        color: _kPrimaryColor,
+        color: Colors.transparent,
+        backgroundColor: Colors.transparent,
+        strokeWidth: 0,
+        displacement: 20,
         onRefresh: () async {
           await controller.refreshHomeData();
         },
         child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
+          physics: const BouncingScrollPhysics(
+            parent: AlwaysScrollableScrollPhysics(),
+          ),
           padding: EdgeInsets.zero,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _SquareHeader(
+              _ModernHeader(
+                name: controller.userName.value,
                 address: controller.address.value,
                 searchQuery: controller.searchQuery.value,
                 onSearchChanged: (val) => controller.searchQuery.value = val,
                 onClearSearch: () => controller.searchQuery.value = "",
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (slides.isNotEmpty) ...[
-                      const Text(
-                        "Promo Spesial ⚡",
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: _kPrimaryColor,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      _CleanPromoSlider(promoSlides: slides),
-                      const SizedBox(height: 25),
-                    ],
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              Stack(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          "Kategori",
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: _kPrimaryColor,
-                          ),
-                        ),
-                        InkWell(
-                          onTap: () => controller.changeCategory("All"),
-                          child: Text(
-                            "Lihat Semua",
+                        if (slides.isNotEmpty) ...[
+                          const Text(
+                            "Spesial Hari Ini 🔥",
                             style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 12,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF1E293B),
                             ),
                           ),
+                          const SizedBox(height: 12),
+                          _CleanPromoSlider(promoSlides: slides),
+                          const SizedBox(height: 25),
+                        ],
+                        const Text(
+                          "Pilihan Menu",
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF1E293B),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _CleanGridMenu(
+                          menu: displayProducts,
+                          onItemTap: (item) {
+                            Get.to(
+                              () => const DetailMenuView(),
+                              arguments: item,
+                              binding: BindingsBuilder(() {
+                                Get.put(DetailMenuController());
+                              }),
+                            );
+                          },
+                          onFavoriteTap: (id) {
+                            controller.toggleFavorite(id);
+                          },
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    _CleanCategoryList(
-                      categories: categories,
-                      selectedCategory: selectedCategory,
-                      onCategorySelected: (cat) =>
-                          controller.changeCategory(cat),
+                  ),
+                  if (controller.isReloading.value)
+                    Positioned.fill(
+                      child: ClipRect(
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+                          child: Container(
+                            color: Colors.white.withOpacity(0.6),
+                            child: const Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  CircularProgressIndicator(
+                                    strokeWidth: 3,
+                                    color: _kPrimaryColor,
+                                  ),
+                                  SizedBox(height: 15),
+                                  Text(
+                                    "Memperbarui Data...",
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: _kPrimaryColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
-                    const SizedBox(height: 24),
-
-                    // GRID MENU DENGAN DATA ASLI
-                    _CleanGridMenu(
-                      menu: displayProducts,
-                      onItemTap: (item) {
-                        Get.to(() => const DetailMenuView(), arguments: item);
-                      },
-                      onFavoriteTap: (id) {
-                        controller.toggleFavorite(id);
-                      },
-                    ),
-                  ],
-                ),
+                ],
               ),
             ],
           ),
@@ -249,15 +279,15 @@ class _HomeViewState extends State<HomeView> {
   }
 }
 
-// ================= WIDGET KOMPONEN =================
-
-class _SquareHeader extends StatelessWidget {
+class _ModernHeader extends StatelessWidget {
+  final String name;
   final String address;
   final Function(String) onSearchChanged;
   final String searchQuery;
   final VoidCallback onClearSearch;
 
-  const _SquareHeader({
+  const _ModernHeader({
+    required this.name,
     required this.address,
     required this.onSearchChanged,
     required this.searchQuery,
@@ -266,19 +296,20 @@ class _SquareHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final topPadding = MediaQuery.of(context).padding.top;
     return Container(
       width: double.infinity,
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [_kPrimaryColor, Color(0xFF1565C0)],
+          colors: [_kPrimaryColor, Color(0xFF1D4ED8)],
         ),
+        // 👇 PERBAIKAN: Diubah menjadi zero (kotak, tidak melengkung)
+        borderRadius: BorderRadius.zero,
       ),
       padding: EdgeInsets.only(
-        top: topPadding + 15,
-        bottom: 25,
+        top: MediaQuery.of(context).padding.top + 15,
+        bottom: 30,
         left: 20,
         right: 20,
       ),
@@ -288,62 +319,78 @@ class _SquareHeader extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "Lokasi Kamu",
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
-                        fontSize: 12,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Text(
+                        "Halo, ",
+                        style: TextStyle(color: Colors.white70, fontSize: 16),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Icon(
-                          Ionicons.location,
-                          color: _kAccentColor,
-                          size: 16,
+                      Text(
+                        "$name 👋",
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
                         ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            address.isEmpty ? "Menemukan lokasi..." : address,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                            overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(
+                        Ionicons.location,
+                        color: _kAccentColor,
+                        size: 14,
+                      ),
+                      const SizedBox(width: 4),
+                      SizedBox(
+                        width: 200,
+                        child: Text(
+                          address.isEmpty ? "Mencari lokasi..." : address,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w500,
+                            fontSize: 13,
                           ),
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ],
-                    ),
-                  ],
-                ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
               Container(
-                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
+                  color: Colors.white.withOpacity(0.15),
+                  shape: BoxShape.circle,
                 ),
-                child: const Icon(
-                  Ionicons.notifications,
-                  color: Colors.white,
-                  size: 20,
+                child: IconButton(
+                  icon: const Icon(
+                    Ionicons.notifications_outline,
+                    color: Colors.white,
+                  ),
+                  onPressed: () {},
                 ),
               ),
             ],
           ),
           const SizedBox(height: 25),
           Container(
-            height: 48,
+            height: 50,
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 15,
+                  offset: const Offset(0, 5),
+                ),
+              ],
             ),
             child: TextField(
               onChanged: onSearchChanged,
@@ -353,12 +400,12 @@ class _SquareHeader extends StatelessWidget {
                 ),
               style: const TextStyle(color: Colors.black87),
               decoration: InputDecoration(
-                hintText: "Cari produk...",
+                hintText: "Mau makan apa hari ini?",
                 hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
                 prefixIcon: const Icon(
-                  Ionicons.search_outline,
+                  Ionicons.search,
                   color: _kPrimaryColor,
-                  size: 20,
+                  size: 22,
                 ),
                 suffixIcon: searchQuery.isNotEmpty
                     ? IconButton(
@@ -369,76 +416,12 @@ class _SquareHeader extends StatelessWidget {
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 15,
-                  vertical: 12,
+                  vertical: 14,
                 ),
               ),
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _CleanCategoryList extends StatelessWidget {
-  final List<String> categories;
-  final String selectedCategory;
-  final Function(String) onCategorySelected;
-
-  const _CleanCategoryList({
-    required this.categories,
-    required this.selectedCategory,
-    required this.onCategorySelected,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (categories.isEmpty) return const SizedBox(height: 38);
-    return SizedBox(
-      height: 38,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: categories.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 10),
-        itemBuilder: (context, index) {
-          final cat = categories[index];
-          final isSelected = cat == selectedCategory;
-          return GestureDetector(
-            onTap: () => onCategorySelected(cat),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              decoration: BoxDecoration(
-                color: isSelected ? _kPrimaryColor : Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: isSelected ? _kPrimaryColor : Colors.grey.shade300,
-                ),
-                boxShadow: isSelected
-                    ? [
-                        BoxShadow(
-                          color: _kPrimaryColor.withOpacity(0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        ),
-                      ]
-                    : [],
-              ),
-              child: Center(
-                child: Text(
-                  cat,
-                  style: TextStyle(
-                    color: isSelected ? Colors.white : Colors.grey[700],
-                    fontWeight: isSelected
-                        ? FontWeight.bold
-                        : FontWeight.normal,
-                    fontSize: 13,
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
       ),
     );
   }
@@ -463,11 +446,15 @@ class _CleanGridMenu extends StatelessWidget {
         child: Center(
           child: Column(
             children: [
-              Icon(Ionicons.cube_outline, size: 48, color: Colors.grey[400]),
-              const SizedBox(height: 10),
+              Icon(
+                Ionicons.fast_food_outline,
+                size: 60,
+                color: Colors.grey[300],
+              ),
+              const SizedBox(height: 12),
               Text(
-                "Produk tidak ditemukan",
-                style: TextStyle(color: Colors.grey[500]),
+                "Menu tidak ditemukan",
+                style: TextStyle(color: Colors.grey[500], fontSize: 16),
               ),
             ],
           ),
@@ -482,17 +469,14 @@ class _CleanGridMenu extends StatelessWidget {
       itemCount: menu.length,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        mainAxisSpacing: 15,
-        crossAxisSpacing: 15,
-        childAspectRatio: 0.70,
+        mainAxisSpacing: 16,
+        crossAxisSpacing: 16,
+        childAspectRatio: 0.72,
       ),
       itemBuilder: (context, index) {
         final item = menu[index];
         final bool isFav = item['is_favorite'] == true;
-
-        // --- PERBAIKAN: RATING ASLI ---
         double rating = item['rating'] ?? 0.0;
-        // Jika 0, tampilkan "Baru", jika ada angka tampilkan "4.8"
         String ratingStr = rating <= 0 ? "Baru" : rating.toStringAsFixed(1);
 
         return GestureDetector(
@@ -500,12 +484,12 @@ class _CleanGridMenu extends StatelessWidget {
           child: Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.grey.withOpacity(0.08),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+                  color: Colors.grey.withOpacity(0.06),
+                  blurRadius: 15,
+                  offset: const Offset(0, 5),
                 ),
               ],
             ),
@@ -517,7 +501,7 @@ class _CleanGridMenu extends StatelessWidget {
                     children: [
                       ClipRRect(
                         borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(12),
+                          top: Radius.circular(16),
                         ),
                         child: Container(
                           width: double.infinity,
@@ -537,31 +521,31 @@ class _CleanGridMenu extends StatelessWidget {
                         ),
                       ),
                       Positioned(
-                        top: 8,
-                        left: 8,
+                        top: 10,
+                        left: 10,
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 3,
+                            horizontal: 8,
+                            vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.6),
-                            borderRadius: BorderRadius.circular(6),
+                            color: Colors.white.withOpacity(0.9),
+                            borderRadius: BorderRadius.circular(8),
                           ),
                           child: Row(
                             children: [
                               const Icon(
-                                Icons.star,
-                                color: Colors.amber,
-                                size: 10,
+                                Icons.star_rounded,
+                                color: _kAccentColor,
+                                size: 14,
                               ),
-                              const SizedBox(width: 3),
+                              const SizedBox(width: 4),
                               Text(
                                 ratingStr,
                                 style: const TextStyle(
-                                  fontSize: 10,
+                                  fontSize: 11,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.white,
+                                  color: Colors.black87,
                                 ),
                               ),
                             ],
@@ -569,8 +553,8 @@ class _CleanGridMenu extends StatelessWidget {
                         ),
                       ),
                       Positioned(
-                        top: 6,
-                        right: 6,
+                        top: 8,
+                        right: 8,
                         child: GestureDetector(
                           onTap: () => onFavoriteTap(item['id']),
                           child: Container(
@@ -578,14 +562,11 @@ class _CleanGridMenu extends StatelessWidget {
                             decoration: const BoxDecoration(
                               shape: BoxShape.circle,
                               color: Colors.white,
-                              boxShadow: [
-                                BoxShadow(color: Colors.black12, blurRadius: 4),
-                              ],
                             ),
                             child: Icon(
                               isFav ? Ionicons.heart : Ionicons.heart_outline,
                               color: isFav ? Colors.red : Colors.grey[400],
-                              size: 16,
+                              size: 18,
                             ),
                           ),
                         ),
@@ -594,7 +575,7 @@ class _CleanGridMenu extends StatelessWidget {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -604,57 +585,30 @@ class _CleanGridMenu extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                          color: Colors.black87,
+                          fontSize: 14,
+                          color: Color(0xFF1E293B),
                         ),
                       ),
-                      const SizedBox(height: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _kPrimaryColor.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          item['type'] ?? 'Umum',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: _kPrimaryColor.withOpacity(0.8),
-                          ),
+                      const SizedBox(height: 4),
+                      Text(
+                        item['type'] ?? 'Umum',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.grey[500],
                         ),
                       ),
-                      const SizedBox(height: 10),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            formatRupiah(item['price']),
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 13,
-                              color: _kPrimaryColor,
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: _kSecondaryColor,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: const Icon(
-                              Ionicons.add,
-                              size: 16,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
+                      const SizedBox(height: 8),
+                      // 👇 PERBAIKAN: Baris harga sekarang hanya berisi teks harga (kotak icon plus dihapus)
+                      Text(
+                        formatRupiah(item['price']),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 14,
+                          color: _kPrimaryColor,
+                        ),
                       ),
                     ],
                   ),
@@ -675,22 +629,29 @@ class _CleanPromoSlider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 140,
+      height: 150,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: promoSlides.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        separatorBuilder: (_, __) => const SizedBox(width: 15),
         itemBuilder: (context, index) {
           return Container(
-            width: 280,
+            width: 300,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(16),
+              color: Colors.grey[200],
               image: DecorationImage(
                 image: NetworkImage(promoSlides[index]['image']),
                 fit: BoxFit.cover,
                 onError: (e, s) {},
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
           );
         },
@@ -719,22 +680,26 @@ class _NavBarItem extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              isSelected ? activeIcon : icon,
-              color: isSelected ? _kPrimaryColor : Colors.grey[400],
-              size: 22,
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              child: Icon(
+                isSelected ? activeIcon : icon,
+                key: ValueKey(isSelected),
+                color: isSelected ? _kPrimaryColor : Colors.grey[400],
+                size: 24,
+              ),
             ),
             const SizedBox(height: 4),
             Text(
               label,
               style: TextStyle(
                 color: isSelected ? _kPrimaryColor : Colors.grey[400],
-                fontSize: 10,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
               ),
             ),
           ],

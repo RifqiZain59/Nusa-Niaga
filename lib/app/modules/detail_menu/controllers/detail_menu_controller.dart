@@ -1,57 +1,76 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:nusaniaga/app/data/api_service.dart';
+import '../../../data/api_service.dart';
 
 class DetailMenuController extends GetxController {
   final ApiService _apiService = ApiService();
 
+  // --- STATE VARIABLES ---
   var product = <String, dynamic>{}.obs;
-  var isLoading = true.obs;
+  var isLoading = true.obs; // Loading awal (Spinner)
+  var isReloading = false.obs; // Loading saat refresh (Blur)
   var isFavorite = false.obs;
   var isFavoriteLoading = false.obs;
 
   RxInt quantity = 1.obs;
   RxDouble totalPrice = 0.0.obs;
+
+  // Controller untuk catatan (opsional, jika ingin ditambahkan di view nanti)
   final TextEditingController notesTextController = TextEditingController();
 
-  // ID Customer (Sementara dummy, nanti dari session)
-  final String _customerId = "dummy_user_id";
+  // Dummy Customer ID (Ganti dengan ID asli dari SharedPref/GetStorage saat login)
+  String get _customerId => "1";
 
   @override
   void onInit() {
     super.onInit();
-    // 1. Ambil data dari halaman sebelumnya (Home)
-    if (Get.arguments != null) {
-      product.assignAll(Get.arguments as Map<String, dynamic>);
+    // 1. Ambil data argument dari halaman sebelumnya
+    if (Get.arguments != null && Get.arguments is Map) {
+      product.assignAll(Map<String, dynamic>.from(Get.arguments));
       _initializeData();
     }
 
-    // 2. Refresh data detail dari server (untuk stok/deskripsi terbaru)
+    // 2. Fetch data terbaru dari server
     fetchDetailProduct();
 
-    // Listener perubahan quantity
+    // 3. Listener perubahan quantity untuk update harga real-time
     ever(quantity, (_) => _updateTotalPrice());
   }
 
   void _initializeData() {
-    // Setup Harga Awal
     _updateTotalPrice();
 
-    // Setup Status Favorit Awal
-    if (product['is_favorite'] == true) {
+    // Set status favorit awal dari data argument
+    if (product['is_favorite'] == true || product['is_favorite'] == 1) {
       isFavorite.value = true;
+    } else {
+      isFavorite.value = false;
     }
 
-    // Stop loading karena data awal sudah ada
-    isLoading.value = false;
+    // Jika data produk ada, matikan loading spinner awal
+    if (product.isNotEmpty) isLoading.value = false;
   }
 
+  // --- FUNGSI REFRESH (PULL TO REFRESH) ---
+  Future<void> refreshData() async {
+    isReloading.value = true; // Aktifkan BLUR di View
+
+    // Panggil ulang API
+    await fetchDetailProduct();
+
+    // Delay tambahan agar animasi blur terlihat (UX)
+    await Future.delayed(const Duration(milliseconds: 800));
+
+    isReloading.value = false; // Matikan BLUR
+  }
+
+  // --- FETCH DATA DARI API ---
   Future<void> fetchDetailProduct() async {
     if (product['id'] == null) return;
     String productId = product['id'].toString();
 
     try {
-      // Parallel Request: Detail Produk & Cek Favorit
+      // Request Paralel: Detail Produk & Status Favorit
       var results = await Future.wait([
         _apiService.getProductDetail(productId, customerId: _customerId),
         _apiService.getFavorites(_customerId),
@@ -60,19 +79,16 @@ class DetailMenuController extends GetxController {
       var detailData = results[0];
       var favoriteData = results[1];
 
-      // A. Update Data Produk (Merge dengan data lama)
+      // Update Data Produk
       if (detailData != null && detailData is Map<String, dynamic>) {
-        // Normalisasi Data API agar cocok dengan UI
-        // API mungkin kirim 'category', Home kirim 'type'. Kita set keduanya.
         if (detailData['category'] != null) {
           detailData['type'] = detailData['category'];
         }
-
         product.addAll(detailData);
-        _updateTotalPrice(); // Hitung ulang jika harga berubah dari server
+        _updateTotalPrice();
       }
 
-      // B. Update Status Favorit Real-time
+      // Cek apakah produk ini ada di daftar favorit user
       bool foundInFavorites = false;
       if (favoriteData is List) {
         foundInFavorites = favoriteData.any(
@@ -83,19 +99,20 @@ class DetailMenuController extends GetxController {
       isFavorite.value = foundInFavorites;
       product['is_favorite'] = foundInFavorites;
     } catch (e) {
-      debugPrint("Error detail/favorite: $e");
+      debugPrint("Error fetching detail: $e");
     } finally {
-      isLoading(false);
+      isLoading.value = false;
     }
   }
 
+  // --- LOGIKA FAVORIT (LENGKAP) ---
   Future<void> toggleFavorite() async {
     if (product['id'] == null || isFavoriteLoading.value) return;
 
     try {
-      isFavoriteLoading(true);
-      // Optimistic UI Update (Langsung berubah sebelum request selesai)
-      isFavorite.value = !isFavorite.value;
+      isFavoriteLoading.value = true;
+      isFavorite.value =
+          !isFavorite.value; // Optimistic Update (Ubah UI duluan)
 
       final result = await _apiService.toggleFavorite(
         _customerId,
@@ -103,11 +120,11 @@ class DetailMenuController extends GetxController {
       );
 
       if (result['status'] == 'error') {
-        // Revert jika gagal
+        // Jika gagal, kembalikan status ke semula
         isFavorite.value = !isFavorite.value;
-        Get.snackbar("Gagal", "Tidak dapat mengubah favorit");
+        Get.snackbar("Gagal", "Gagal menyimpan favorit");
       } else {
-        // Sinkron data lokal
+        // Jika sukses, update data produk lokal
         product['is_favorite'] = isFavorite.value;
 
         Get.snackbar(
@@ -122,30 +139,33 @@ class DetailMenuController extends GetxController {
         );
       }
     } catch (e) {
-      isFavorite.value = !isFavorite.value; // Revert
-      debugPrint("Error Toggle: $e");
+      isFavorite.value = !isFavorite.value; // Revert jika error exception
+      Get.snackbar("Error", "Gagal menghubungi server");
     } finally {
-      isFavoriteLoading(false);
+      isFavoriteLoading.value = false;
     }
   }
 
+  // --- LOGIKA QUANTITY ---
   void incrementQuantity() => quantity.value++;
 
   void decrementQuantity() {
     if (quantity.value > 1) quantity.value--;
   }
 
+  // --- LOGIKA HARGA ---
   void _updateTotalPrice() {
-    // Parsing harga yang aman (bisa int, double, atau string)
     double price = 0.0;
     var pPrice = product['price'];
 
-    if (pPrice is num) {
-      price = pPrice.toDouble();
-    } else if (pPrice is String) {
-      // Hapus karakter non-angka (Rp, titik, dll)
-      String clean = pPrice.replaceAll(RegExp(r'[^0-9]'), '');
-      price = double.tryParse(clean) ?? 0.0;
+    if (pPrice != null) {
+      if (pPrice is num) {
+        price = pPrice.toDouble();
+      } else if (pPrice is String) {
+        // Membersihkan string harga (misal: "Rp 15.000" -> "15000")
+        String clean = pPrice.replaceAll(RegExp(r'[^0-9]'), '');
+        price = double.tryParse(clean) ?? 0.0;
+      }
     }
 
     totalPrice.value = price * quantity.value;
@@ -153,7 +173,7 @@ class DetailMenuController extends GetxController {
 
   @override
   void onClose() {
-    notesTextController.dispose();
+    notesTextController.dispose(); // Bersihkan controller teks
     super.onClose();
   }
 }

@@ -4,6 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+// 1. IMPORT LoginView Anda di sini
+// Pastikan path ini sesuai dengan struktur folder project Anda
+import '../../login/views/login_view.dart';
+
 class VerifikasiController extends GetxController {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
@@ -20,32 +24,27 @@ class VerifikasiController extends GetxController {
   void onInit() {
     super.onInit();
 
-    // Ambil email dari arguments
     if (Get.arguments != null && Get.arguments['email'] != null) {
       email.value = Get.arguments['email'];
     }
 
-    // Mulai cek status verifikasi otomatis tiap 3 detik
     _startEmailVerificationCheck();
     _startResendTimer();
   }
 
-  // --- CEK STATUS OTOMATIS (POLLING) ---
   void _startEmailVerificationCheck() {
     _timer = Timer.periodic(const Duration(seconds: 3), (timer) async {
       User? user = _auth.currentUser;
-
-      // Sangat Penting: Reload user agar Firebase menarik status terbaru (Verified/Not)
       await user?.reload();
 
       if (user != null && user.emailVerified) {
         timer.cancel();
-        _navigateToHome();
+        // 2. Diarahkan ke proses penyelesaian verifikasi
+        _handleVerificationSuccess();
       }
     });
   }
 
-  // --- HITUNG MUNDUR KIRIM ULANG ---
   void _startResendTimer() {
     canResendEmail.value = false;
     secondsRemaining.value = 60;
@@ -60,7 +59,6 @@ class VerifikasiController extends GetxController {
     });
   }
 
-  // --- KIRIM ULANG EMAIL ---
   Future<void> resendVerificationEmail() async {
     try {
       isLoading.value = true;
@@ -71,31 +69,39 @@ class VerifikasiController extends GetxController {
         Get.snackbar("Berhasil", "Link baru telah dikirim.");
       }
     } catch (e) {
-      Get.snackbar("Error", "Gagal mengirim email. Tunggu sebentar lagi.");
+      Get.snackbar("Error", "Gagal mengirim email.");
     } finally {
       isLoading.value = false;
     }
   }
 
-  void _navigateToHome() async {
+  // Perubahan: Navigasi ke Login setelah sukses verifikasi
+  void _handleVerificationSuccess() async {
+    // Tetap simpan status login jika diperlukan,
+    // atau biarkan user login ulang melalui LoginView
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('is_login', true);
 
-    Get.offAllNamed('/home');
     Get.snackbar(
       "Sukses",
-      "Email berhasil diverifikasi!",
+      "Email berhasil diverifikasi! Silakan masuk kembali.",
       backgroundColor: Colors.green,
       colorText: Colors.white,
+      snackPosition: SnackPosition.BOTTOM,
     );
+
+    // Navigasi langsung menggunakan kelas LoginView
+    Get.offAll(() => const LoginView());
   }
 
-  // Jika user ingin ganti email/kembali
+  // Jika user klik "Ganti Akun"
   void logout() async {
     _timer?.cancel();
     _resendTimer?.cancel();
     await _auth.signOut();
-    Get.offAllNamed('/login');
+
+    // Navigasi langsung menggunakan kelas LoginView
+    Get.offAll(() => const LoginView());
   }
 
   @override

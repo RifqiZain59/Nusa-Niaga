@@ -3,20 +3,25 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:ionicons/ionicons.dart';
 
-// Import Controller & ApiService (untuk URL)
+// Import Controller & ApiService
 import '../controllers/profile_controller.dart';
-import '../../../data/api_service.dart'; // Import ini penting untuk URL
+import '../../../data/api_service.dart';
+
+// IMPORT HALAMAN KEAMANAN AKUN (EDIT PROFIL)
 import '../../keamananakun/views/keamananakun_view.dart';
 
 class ProfileView extends GetView<ProfileController> {
   const ProfileView({super.key});
 
+  // --- PALET WARNA ---
   static const Color _primaryBlue = Color(0xFF2563EB);
   static const Color _darkBlue = Color(0xFF1E40AF);
   static const Color _backgroundColor = Color(0xFFF8F9FD);
   static const Color _cardColor = Colors.white;
   static const Color _textPrimary = Color(0xFF1F2937);
   static const Color _textSecondary = Color(0xFF6B7280);
+
+  static final RxBool _isPhoneVisible = false.obs;
 
   @override
   Widget build(BuildContext context) {
@@ -27,135 +32,104 @@ class ProfileView extends GetView<ProfileController> {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.light,
-        statusBarBrightness: Brightness.dark,
+        statusBarIconBrightness: Brightness.dark,
       ),
       child: Scaffold(
         backgroundColor: _backgroundColor,
         body: RefreshIndicator(
           onRefresh: controller.refreshProfile,
+          color: _primaryBlue,
           child: SingleChildScrollView(
-            physics: const ClampingScrollPhysics(),
+            // Menggunakan BouncingScrollPhysics agar scroll terasa lebih halus dan elastis
+            physics: const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics(),
+            ),
             child: Column(
               children: [
-                _buildSquareHeader(context),
-                Transform.translate(
-                  offset: const Offset(0, -40),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Column(
-                      children: [
-                        _buildStatsCard(),
-                        const SizedBox(height: 20),
-                        _buildSectionTitle('Pengaturan Akun'),
-                        _buildMenuCard(
-                          children: [
-                            _buildMenuItem(
-                              icon: Ionicons.lock_closed_outline,
-                              title: 'Keamanan Akun',
-                              subtitle: 'Password & Verifikasi',
-                              onTap: () =>
-                                  Get.to(() => const KeamananakunView())
-                                  // Saat kembali, refresh profil agar foto terupdate
-                                  ?.then((_) => controller.loadProfile()),
-                            ),
-                            _buildDivider(),
-                            _buildMenuItem(
-                              icon: Ionicons.location_outline,
-                              title: 'Alamat Pengiriman',
-                              subtitle: 'Atur alamat rumah & kantor',
-                              onTap: () {
-                                Get.snackbar(
-                                  "Info",
-                                  "Fitur Alamat segera hadir",
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
-                        _buildSectionTitle('Aktivitas Belanja'),
-                        _buildMenuCard(
-                          children: [
-                            _buildMenuItem(
-                              icon: Ionicons.bag_check_outline,
-                              title: 'Pesanan Saya',
-                              badgeCount: 0,
-                              onTap: () {
-                                Get.toNamed('/pesanansaya');
-                              },
-                            ),
-                            _buildDivider(),
-                            _buildMenuItem(
-                              icon: Ionicons.heart_outline,
-                              title: 'Wishlist',
-                              onTap: () {},
-                            ),
-                            _buildDivider(),
-                            _buildMenuItem(
-                              icon: Ionicons.chatbox_ellipses_outline,
-                              title: 'Ulasan',
-                              onTap: () {},
-                            ),
-                            _buildDivider(),
-                            _buildMenuItem(
-                              icon: Ionicons.headset_outline,
-                              title: 'Pusat Bantuan',
-                              onTap: () {},
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 30),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 55,
-                          child: TextButton(
-                            onPressed: () {
-                              Get.defaultDialog(
-                                title: "Keluar",
-                                middleText: "Apakah Anda yakin ingin keluar?",
-                                textConfirm: "Ya, Keluar",
-                                textCancel: "Batal",
-                                confirmTextColor: Colors.white,
-                                buttonColor: Colors.red,
-                                onConfirm: () {
-                                  Get.back();
-                                  controller.logout();
-                                },
+                // Jarak aman dari Status Bar
+                SizedBox(height: MediaQuery.of(context).padding.top + 30),
+
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    children: [
+                      // 1. KARTU IDENTITAS BIRU (DENGAN ICON)
+                      _buildBlueIdentityCard(),
+
+                      const SizedBox(height: 30),
+
+                      // MENU 1: PENGATURAN AKUN
+                      _buildSectionTitle('Pengaturan Akun'),
+                      _buildMenuContainer(
+                        children: [
+                          _buildMenuItem(
+                            icon: Ionicons.person_outline,
+                            title: 'Edit Profil',
+                            subtitle: 'Ubah nama & data diri',
+                            onTap: () {
+                              Get.to(
+                                () => const KeamananakunView(),
+                              )?.then((_) => controller.loadProfile());
+                            },
+                          ),
+                          _buildDivider(),
+                          _buildMenuItem(
+                            icon: Ionicons.time_outline,
+                            title: 'History Login',
+                            subtitle: 'Riwayat aktivitas masuk akun',
+                            onTap: () {
+                              Get.snackbar(
+                                "Info",
+                                "Fitur History Login segera hadir",
                               );
                             },
-                            style: TextButton.styleFrom(
-                              backgroundColor: const Color(0xFFFEF2F2),
-                              foregroundColor: Colors.red,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              elevation: 0,
-                            ),
-                            child: const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Ionicons.log_out_outline),
-                                SizedBox(width: 8),
-                                Text(
-                                  "Keluar Aplikasi",
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
                           ),
-                        ),
-                        const SizedBox(height: 40),
-                        const Text(
-                          "Versi Aplikasi 1.0.0",
-                          style: TextStyle(color: _textSecondary, fontSize: 12),
-                        ),
-                        const SizedBox(height: 20),
-                      ],
-                    ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // MENU 2: AKTIVITAS BELANJA
+                      _buildSectionTitle('Aktivitas Belanja'),
+                      _buildMenuContainer(
+                        children: [
+                          _buildMenuItem(
+                            icon: Ionicons.bag_check_outline,
+                            title: 'Pesanan Saya',
+                            onTap: () => Get.toNamed('/pesanansaya'),
+                          ),
+                          _buildDivider(),
+                          _buildMenuItem(
+                            icon: Ionicons.heart_outline,
+                            title: 'Wishlist',
+                            onTap: () {},
+                          ),
+                          _buildDivider(),
+                          _buildMenuItem(
+                            icon: Ionicons.headset_outline,
+                            title: 'Pusat Bantuan',
+                            onTap: () {},
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 30),
+
+                      // 2. TOMBOL KELUAR
+                      _buildLogoutButton(),
+
+                      const SizedBox(height: 30),
+
+                      // INFO VERSI
+                      const Text(
+                        "Versi Aplikasi 1.0.0",
+                        style: TextStyle(color: _textSecondary, fontSize: 12),
+                      ),
+
+                      // --- PERBAIKAN SCROLL ---
+                      // Memberikan ruang kosong di bawah agar konten terakhir bisa di-scroll ke atas nav bar
+                      const SizedBox(height: 120),
+                    ],
                   ),
                 ),
               ],
@@ -166,232 +140,179 @@ class ProfileView extends GetView<ProfileController> {
     );
   }
 
-  Widget _buildSquareHeader(BuildContext context) {
-    final double statusBarHeight = MediaQuery.of(context).padding.top;
+  // --- WIDGET KARTU IDENTITAS BIRU ---
+  Widget _buildBlueIdentityCard() {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [_primaryBlue, _darkBlue],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: _primaryBlue.withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        children: [
+          // Dekorasi Icon Transparan di pojok kanan bawah kartu
+          Positioned(
+            bottom: -30,
+            right: -20,
+            child: Icon(
+              Ionicons.person_circle,
+              size: 180,
+              color: Colors.white.withOpacity(0.1),
+            ),
+          ),
 
-    return Stack(
-      children: [
-        Container(
-          height: 280 + statusBarHeight,
-          width: double.infinity,
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [_primaryBlue, _darkBlue],
-            ),
-          ),
-        ),
-        Positioned(
-          top: -60,
-          right: -60,
-          child: Container(
-            width: 250,
-            height: 250,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white.withOpacity(0.05),
-            ),
-          ),
-        ),
-        Positioned(
-          top: 100,
-          left: -40,
-          child: Container(
-            width: 150,
-            height: 150,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white.withOpacity(0.03),
-            ),
-          ),
-        ),
-        Padding(
-          padding: EdgeInsets.only(
-            top: statusBarHeight + 30,
-            left: 20,
-            right: 20,
-            bottom: 70,
-          ),
-          child: SizedBox(
-            width: double.infinity,
+          Padding(
+            padding: const EdgeInsets.all(22),
             child: Obx(() {
-              if (controller.isLoading.value) {
-                return const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(20.0),
-                    child: CircularProgressIndicator(color: Colors.white),
-                  ),
-                );
-              }
-
               final user = controller.userProfile;
               final String userId = user['id'] ?? '';
-              final name = user['name'] ?? 'Pengguna Baru';
-              final email = user['email'] ?? 'Belum ada email';
-
-              // GENERATE URL GAMBAR
-              // Menambahkan signature time agar gambar tidak di-cache oleh Flutter jika baru diupdate
+              final String name = user['name'] ?? 'Pengguna Baru';
+              final String email = user['email'] ?? 'Belum ada email';
+              final String phone = user['phone'] ?? '-';
               final String imageUrl =
                   '${ApiService.baseUrl}/customer_image/$userId?v=${controller.imageSignature}';
 
               return Column(
-                mainAxisAlignment: MainAxisAlignment.start,
-                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white.withOpacity(0.2),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 20,
-                          offset: const Offset(0, 5),
+                  Row(
+                    children: [
+                      // Avatar
+                      Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white24,
                         ),
-                      ],
-                    ),
-                    child: CircleAvatar(
-                      radius: 42,
-                      backgroundColor: Colors.white,
-                      child: CircleAvatar(
-                        radius: 40,
-                        backgroundColor: const Color(0xFFF0F5FF),
-                        // === LOGIKA GAMBAR ===
-                        // Menggunakan foregroundImage:
-                        // Jika gambar berhasil diload, tampilkan gambar.
-                        // Jika gagal (error/404), tampilkan child (Inisial Nama).
-                        foregroundImage: userId.isNotEmpty
-                            ? NetworkImage(imageUrl)
-                            : null,
-                        onForegroundImageError: (_, __) {
-                          // Tidak perlu print error agar log bersih
-                        },
-                        child: Text(
-                          name.isNotEmpty
-                              ? name.substring(0, 1).toUpperCase()
-                              : "U",
-                          style: const TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.w800,
-                            color: _primaryBlue,
-                          ),
+                        child: CircleAvatar(
+                          radius: 38,
+                          backgroundColor: Colors.white,
+                          backgroundImage: userId.isNotEmpty
+                              ? NetworkImage(imageUrl)
+                              : null,
+                          child: userId.isEmpty
+                              ? const Icon(
+                                  Ionicons.person,
+                                  color: _primaryBlue,
+                                  size: 30,
+                                )
+                              : null,
                         ),
                       ),
-                    ),
+                      const SizedBox(width: 16),
+                      // Teks Identitas
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              name,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              email,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.white.withOpacity(0.85),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    name,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                      letterSpacing: 0.5,
+                  const SizedBox(height: 22),
+                  // Kotak Nomor HP (Transparan di dalam kartu biru)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 14,
+                      horizontal: 18,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    email,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                      color: Colors.white.withOpacity(0.85),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Ionicons.call,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Obx(() {
+                            bool visible = _isPhoneVisible.value;
+                            String displayPhone = phone;
+                            if (!visible && phone.length > 4) {
+                              displayPhone =
+                                  "${phone.substring(0, 4)} **** ****";
+                            }
+                            return Text(
+                              displayPhone,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15,
+                                letterSpacing: 0.5,
+                              ),
+                            );
+                          }),
+                        ),
+                        GestureDetector(
+                          onTap: () => _isPhoneVisible.toggle(),
+                          child: Obx(
+                            () => Icon(
+                              _isPhoneVisible.value
+                                  ? Ionicons.eye_off
+                                  : Ionicons.eye,
+                              color: Colors.white70,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               );
             }),
           ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatsCard() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-      decoration: BoxDecoration(
-        color: _cardColor,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF2563EB).withOpacity(0.08),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
-          ),
         ],
       ),
-      child: Obx(
-        () => Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _buildStatItem(controller.voucherCount.value.toString(), "Voucher"),
-            Container(height: 30, width: 1, color: Colors.grey[200]),
-            _buildStatItem("${controller.userPoints.value}", "Poin"),
-            Container(height: 30, width: 1, color: Colors.grey[200]),
-            _buildStatItem(
-              controller.totalTransactions.value.toString(),
-              "Transaksi",
-            ),
-          ],
-        ),
-      ),
     );
   }
 
-  Widget _buildStatItem(String value, String label) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-            color: _primaryBlue,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12, color: _textSecondary),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSectionTitle(String title) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Padding(
-        padding: const EdgeInsets.only(left: 4, bottom: 12),
-        child: Text(
-          title,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: _textPrimary,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMenuCard({required List<Widget> children}) {
+  Widget _buildMenuContainer({required List<Widget> children}) {
     return Container(
       decoration: BoxDecoration(
         color: _cardColor,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
@@ -404,25 +325,24 @@ class ProfileView extends GetView<ProfileController> {
     required String title,
     String? subtitle,
     VoidCallback? onTap,
-    int? badgeCount,
   }) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           child: Row(
             children: [
               Container(
-                width: 40,
-                height: 40,
+                width: 42,
+                height: 42,
                 decoration: BoxDecoration(
                   color: const Color(0xFFF3F4F6),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, color: _primaryBlue, size: 20),
+                child: Icon(icon, color: _primaryBlue, size: 22),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -450,26 +370,6 @@ class ProfileView extends GetView<ProfileController> {
                   ],
                 ),
               ),
-              if (badgeCount != null && badgeCount > 0)
-                Container(
-                  margin: const EdgeInsets.only(right: 10),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.red,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    badgeCount.toString(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
               const Icon(
                 Ionicons.chevron_forward,
                 size: 18,
@@ -482,13 +382,78 @@ class ProfileView extends GetView<ProfileController> {
     );
   }
 
+  Widget _buildSectionTitle(String title) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Padding(
+        padding: const EdgeInsets.only(left: 8, bottom: 10),
+        child: Text(
+          title,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: _textPrimary,
+            letterSpacing: 0.2,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildDivider() {
     return Divider(
       height: 1,
       thickness: 1,
-      color: Colors.grey[100],
-      indent: 72,
-      endIndent: 0,
+      color: Colors.grey.shade100,
+      indent: 78,
+      endIndent: 20,
+    );
+  }
+
+  Widget _buildLogoutButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: ElevatedButton(
+        onPressed: () => _showLogoutDialog(),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.red.shade600,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: Colors.red.shade100, width: 1),
+          ),
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Ionicons.log_out_outline),
+            SizedBox(width: 10),
+            Text(
+              "Keluar Aplikasi",
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showLogoutDialog() {
+    Get.defaultDialog(
+      title: "Konfirmasi",
+      titleStyle: const TextStyle(fontWeight: FontWeight.bold),
+      middleText: "Apakah Anda yakin ingin keluar?",
+      textConfirm: "Ya, Keluar",
+      textCancel: "Batal",
+      confirmTextColor: Colors.white,
+      buttonColor: Colors.red,
+      radius: 16,
+      onConfirm: () {
+        Get.back();
+        controller.logout();
+      },
     );
   }
 }

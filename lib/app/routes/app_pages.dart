@@ -4,6 +4,8 @@ import '../modules/Poin/bindings/poin_binding.dart';
 import '../modules/Poin/views/poin_view.dart';
 import '../modules/Profile/bindings/profile_binding.dart';
 import '../modules/Profile/views/profile_view.dart';
+import '../modules/Scanner/bindings/scanner_binding.dart';
+import '../modules/Scanner/views/scanner_view.dart';
 import '../modules/checkout/bindings/checkout_binding.dart';
 import '../modules/checkout/views/checkout_view.dart';
 import '../modules/detail_menu/bindings/detail_menu_binding.dart';
@@ -36,7 +38,7 @@ part 'app_routes.dart';
 class AppPages {
   AppPages._();
 
-  static const INITIAL = Routes.LOGIN;
+  static const INITIAL = Routes.VERIFIKASI;
 
   static final routes = [
     GetPage(
@@ -113,6 +115,11 @@ class AppPages {
       name: _Paths.DETAILPESANANSAYA,
       page: () => const DetailpesanansayaView(),
       binding: DetailpesanansayaBinding(),
+    ),
+    GetPage(
+      name: _Paths.SCANNER,
+      page: () => const ScannerView(),
+      binding: ScannerBinding(),
     ),
   ];
 }

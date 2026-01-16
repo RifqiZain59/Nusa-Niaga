@@ -1,199 +1,374 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:ionicons/ionicons.dart';
-import 'package:nusaniaga/app/modules/Poin/controllers/poin_controller.dart';
-// import 'package:nusaniaga/app/modules/detail_poin/views/detail_poin_view.dart'; // Aktifkan jika view detail sudah ada
+import 'package:intl/intl.dart';
+import '../controllers/poin_controller.dart';
 
-class PoinView extends GetView<PoinController> {
+class PoinView extends StatelessWidget {
   const PoinView({super.key});
+
+  // Helper Format Tanggal
+  String formatDate(String dateStr) {
+    if (dateStr.isEmpty) return "-";
+    try {
+      DateTime dt = DateTime.parse(dateStr);
+      return DateFormat('dd MMM yyyy, HH:mm').format(dt);
+    } catch (e) {
+      return dateStr;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Inisialisasi Controller jika belum ada
-    if (!Get.isRegistered<PoinController>()) {
-      Get.put(PoinController());
-    }
+    // Injeksi Controller
+    final PoinController controller = Get.put(PoinController());
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF5F7FA),
+      appBar: AppBar(
+        systemOverlayStyle: const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.dark,
+        ),
+        title: const Text(
+          'Loyalty Points',
+          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+        automaticallyImplyLeading: false,
+      ),
       body: RefreshIndicator(
         onRefresh: () => controller.refreshData(),
+        color: Colors.indigo,
         child: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Stack(
+            // Gunakan Stack agar body tidak tertutup FAB
             children: [
-              const SizedBox(height: 20),
-              // Header Poin Box
-              Obx(() => _buildPointBox(controller.myPoints.value)),
+              SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.only(bottom: 100), // Space untuk FAB
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 1. KARTU POIN (HERO SECTION)
+                    Obx(() => _buildHeroPointCard(controller.myPoints.value)),
 
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 10),
-                child: Text(
-                  'Tukar dengan item ini:',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    const SizedBox(height: 20),
+
+                    // [BARU] TOMBOL SCAN CARD DI BODY (Agar lebih terlihat)
+                    _buildScanCardButton(controller),
+
+                    const SizedBox(height: 30),
+
+                    // 2. JUDUL RIWAYAT
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 20.0),
+                      child: Text(
+                        'Riwayat Penukaran',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 15),
+
+                    // 3. LIST RIWAYAT
+                    Obx(() {
+                      if (controller.isLoading.value) {
+                        return const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(20),
+                            child: CircularProgressIndicator(
+                              color: Colors.indigo,
+                            ),
+                          ),
+                        );
+                      }
+
+                      if (controller.redemptionHistory.isEmpty) {
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 40),
+                            child: Column(
+                              children: [
+                                Icon(
+                                  Ionicons.time_outline,
+                                  size: 60,
+                                  color: Colors.grey.shade300,
+                                ),
+                                const SizedBox(height: 10),
+                                Text(
+                                  "Belum ada riwayat penukaran",
+                                  style: TextStyle(color: Colors.grey.shade500),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }
+
+                      return ListView.separated(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: controller.redemptionHistory.length,
+                        separatorBuilder: (context, index) =>
+                            const SizedBox(height: 12),
+                        itemBuilder: (context, index) {
+                          var item = controller.redemptionHistory[index];
+                          return _buildHistoryItem(item);
+                        },
+                      );
+                    }),
+                  ],
                 ),
-              ),
-
-              // List Rewards Dinamis
-              Expanded(
-                child: Obx(() {
-                  if (controller.isLoading.value) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-
-                  if (controller.rewards.isEmpty) {
-                    return const Center(
-                      child: Text("Belum ada item penukaran."),
-                    );
-                  }
-
-                  return ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    itemCount: controller.rewards.length,
-                    itemBuilder: (context, index) {
-                      var item = controller.rewards[index];
-                      return _buildPointRewardItem(item);
-                    },
-                  );
-                }),
               ),
             ],
           ),
         ),
       ),
-    );
-  }
 
-  Widget _buildPointBox(int points) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
-      child: Container(
-        padding: const EdgeInsets.all(20.0),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.blue.shade700, Colors.blue.shade500],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(20.0),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.blue.withOpacity(0.3),
-              blurRadius: 15,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Total Poin Anda:',
-                  style: TextStyle(color: Colors.white70),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  '$points Poin',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 24,
-                  ),
-                ),
-              ],
-            ),
-            const Spacer(),
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white24,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(
-                Ionicons.wallet_outline,
-                color: Colors.white,
-                size: 30,
-              ),
-            ),
-          ],
+      // [FIX] TOMBOL SCAN KAMERA (Floating Action Button)
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => controller.scanQrCode(),
+        backgroundColor: Colors.indigo,
+        // Ganti Icon ke Material Icons standard jika Ionicons bermasalah
+        icon: const Icon(Icons.qr_code_scanner, color: Colors.white),
+        label: const Text(
+          "Scan Bayar",
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
       ),
     );
   }
 
-  Widget _buildPointRewardItem(dynamic item) {
-    String imgUrl = item['image_url'] ?? '';
+  // --- WIDGET TAMBAHAN: TOMBOL SCAN DI BODY ---
+  Widget _buildScanCardButton(PoinController controller) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: () => controller.scanQrCode(),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.indigo,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: Colors.indigo.withOpacity(0.1)),
+          ),
+        ),
+        icon: const Icon(Icons.qr_code_scanner, size: 24),
+        label: const Text(
+          "Scan QR Code (Alternatif)",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+      ),
+    );
+  }
+
+  // --- WIDGET ITEM HISTORY ---
+  Widget _buildHistoryItem(dynamic item) {
+    String customerId = item['customer_id'] ?? 'Unknown';
+    String desc = item['description'] ?? 'Penukaran';
+    int points = int.tryParse(item['points_spent'].toString()) ?? 0;
+    String date = formatDate(item['date'] ?? '');
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 15.0),
-      padding: const EdgeInsets.all(12.0),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(15.0),
-        border: Border.all(color: Colors.grey.shade200),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: Border.all(color: Colors.grey.shade100),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10.0),
-            child: imgUrl.isNotEmpty
-                ? Image.network(
-                    imgUrl,
-                    width: 70,
-                    height: 70,
-                    fit: BoxFit.cover,
-                    errorBuilder: (c, e, s) => Container(
-                      color: Colors.grey[200],
-                      width: 70,
-                      height: 70,
-                      child: const Icon(Icons.image),
-                    ),
-                  )
-                : Container(
-                    color: Colors.grey[200],
-                    width: 70,
-                    height: 70,
-                    child: const Icon(Icons.image),
-                  ),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.red.shade50,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Ionicons.gift_outline,
+              color: Colors.red.shade400,
+              size: 22,
+            ),
           ),
-          const SizedBox(width: 15),
+          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  item['title'] ?? 'Hadiah',
+                  desc,
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 14,
+                    fontSize: 15,
+                    color: Colors.black87,
                   ),
                 ),
+                const SizedBox(height: 4),
                 Text(
-                  item['description'] ?? '',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 11),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                  date,
+                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
                 ),
-                const SizedBox(height: 5),
+                const SizedBox(height: 6),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
+                    horizontal: 6,
+                    vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.orange.shade50,
-                    borderRadius: BorderRadius.circular(8),
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: Colors.grey.shade300),
                   ),
                   child: Text(
-                    '${item['point_cost']} Poin',
+                    "ID: $customerId",
                     style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                      color: Colors.orange.shade800,
+                      fontSize: 10,
+                      color: Colors.grey[700],
+                      fontFamily: 'monospace',
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              '- $points Poin',
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 14,
+                color: Colors.red.shade600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- WIDGET HERO CARD ---
+  Widget _buildHeroPointCard(int points) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20.0),
+      height: 180,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.indigo.shade800, Colors.indigo.shade500],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24.0),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.indigo.withOpacity(0.4),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -20,
+            top: -20,
+            child: CircleAvatar(
+              radius: 60,
+              backgroundColor: Colors.white.withOpacity(0.1),
+            ),
+          ),
+          Positioned(
+            bottom: -40,
+            left: -20,
+            child: CircleAvatar(
+              radius: 80,
+              backgroundColor: Colors.white.withOpacity(0.1),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(
+                            Ionicons.sparkles,
+                            color: Colors.yellow,
+                            size: 16,
+                          ),
+                          SizedBox(width: 5),
+                          Text(
+                            "Member Gold",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Ionicons.wallet, color: Colors.white, size: 28),
+                  ],
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Total Poin Anda',
+                      style: TextStyle(
+                        color: Colors.indigo.shade100,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '$points',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 42,
+                        height: 1.0,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

@@ -1,32 +1,25 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:ionicons/ionicons.dart';
+import 'package:nusaniaga/app/data/api_service.dart'; // Import API Service
 
-// Import Controller
 import '../controllers/pesanansaya_controller.dart';
-
-// Import Halaman Detail
 import '../../detailpesanansaya/views/detailpesanansaya_view.dart';
 
 class PesanansayaView extends GetView<PesanansayaController> {
   const PesanansayaView({super.key});
 
-  // --- STYLE KONSTAN ---
   static const Color _primaryBlue = Color(0xFF2563EB);
   static const Color _bg = Color(0xFFF8F9FD);
   static const Color _textDark = Color(0xFF1F2937);
 
-  // Helper Format Rupiah (DIPERBAIKI: Aman untuk Double/Float)
   String formatRupiah(dynamic number) {
     if (number == null) return "Rp 0";
     try {
-      // 1. Parse ke double dulu untuk menangani desimal (contoh: 15000.0)
       double valDouble = double.tryParse(number.toString()) ?? 0;
-
-      // 2. Ubah ke Int (hilangkan koma)
       int val = valDouble.toInt();
-
-      // 3. Format ribuan
       String str = val.toString();
       RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
       return "Rp ${str.replaceAllMapped(reg, (Match m) => '${m[1]}.')}";
@@ -35,18 +28,23 @@ class PesanansayaView extends GetView<PesanansayaController> {
     }
   }
 
-  // Helper Format Tanggal (DD-MM-YYYY)
-  String formatTanggal(String? dateString) {
-    if (dateString == null || dateString.isEmpty) return "Hari ini";
+  String formatTanggal(dynamic dateData) {
+    if (dateData == null) return "Baru Saja";
     try {
-      DateTime dt = DateTime.parse(dateString);
-      String day = dt.day.toString().padLeft(2, '0');
-      String month = dt.month.toString().padLeft(2, '0');
-      String year = dt.year.toString();
-      return "$day-$month-$year";
+      String dateStr = dateData.toString();
+      if (dateStr.contains('T')) return dateStr.split('T')[0];
+      return dateStr.split(' ')[0];
     } catch (e) {
-      return dateString;
+      return "Hari ini";
     }
+  }
+
+  // Membersihkan format base64 jika kotor
+  String cleanBase64(String base64String) {
+    if (base64String.contains(',')) {
+      return base64String.split(',').last;
+    }
+    return base64String.replaceAll(RegExp(r'\s+'), '');
   }
 
   @override
@@ -75,12 +73,10 @@ class PesanansayaView extends GetView<PesanansayaController> {
         ),
       ),
       body: Obx(() {
-        if (controller.isLoading.value) {
+        if (controller.isLoading.value)
           return const Center(
             child: CircularProgressIndicator(color: _primaryBlue),
           );
-        }
-
         if (controller.allTransactions.isEmpty) {
           return Center(
             child: Column(
@@ -95,6 +91,12 @@ class PesanansayaView extends GetView<PesanansayaController> {
                 Text(
                   "Belum ada transaksi",
                   style: TextStyle(color: Colors.grey[500], fontSize: 16),
+                ),
+                const SizedBox(height: 10),
+                TextButton.icon(
+                  onPressed: () => controller.fetchHistory(),
+                  icon: const Icon(Icons.refresh),
+                  label: const Text("Refresh Data"),
                 ),
               ],
             ),
@@ -118,21 +120,48 @@ class PesanansayaView extends GetView<PesanansayaController> {
   }
 
   Widget _buildOrderCard(Map<String, dynamic> item) {
-    // --- PARSING DATA ---
-    String orderId = item['queue_number'] ?? '000';
-    String date = formatTanggal(item['date']);
-    String status = (item['status'] ?? 'PAID').toString().toUpperCase();
+    String orderId = (item['order_id'] ?? '-').toString();
+    if (orderId.length > 20) orderId = "${orderId.substring(0, 15)}...";
 
-    // DIPERBAIKI: Ambil harga dengan aman
-    // Prioritas: final_price -> total_price -> 0
-    var rawPrice = item['final_price'] ?? item['total_price'] ?? 0;
-    String totalPrice = formatRupiah(rawPrice);
+    String date = formatTanggal(item['created_at']);
+    String status = (item['status'] ?? 'pending').toString().toUpperCase();
 
-    // Gambar Produk
-    String productId = item['product_id']?.toString() ?? '';
-    String imageUrl = controller.apiService.getProductImageUrl(productId);
+    var summary = item['summary'] ?? {};
+    var rawGrandTotal = summary['grand_total'] ?? item['final_price'] ?? 0;
+    String totalPrice = formatRupiah(rawGrandTotal);
 
-    // Konfigurasi Status
+    List rawItems = item['items'] ?? [];
+    var firstItem = rawItems.isNotEmpty ? rawItems[0] : {};
+
+    String productName = firstItem['product_name'] ?? 'Item Produk';
+    String quantity = (firstItem['qty'] ?? 1).toString();
+
+    // Ambil Product ID untuk request gambar ke server
+    String pid = (firstItem['product_id'] ?? firstItem['id'] ?? '').toString();
+
+    // --- LOGIKA GAMBAR (Collection Products via API) ---
+    String? imgBase64 = firstItem['image_base64'] ?? item['image_base64'];
+    String? imgUrl = firstItem['image_url'] ?? item['image'];
+
+    ImageProvider imageProvider;
+
+    // 1. Coba decode Base64 (jika ada data sisa/kecil)
+    if (imgBase64 != null && imgBase64.length > 100) {
+      try {
+        imageProvider = MemoryImage(base64Decode(cleanBase64(imgBase64)));
+      } catch (e) {
+        imageProvider = const AssetImage('assets/logo_app/logo2.png');
+      }
+    }
+    // 2. Jika kosong (karena limit), PANGGIL API backend yang membaca collection products
+    else {
+      // Ambil Base URL dari ApiService, buang '/api' jika ada
+      String baseUrl = ApiService.baseUrl.replaceAll('/api', '');
+      // URL ini akan membuat backend membaca image_base64 dari products collection
+      String finalUrl = "$baseUrl/api/product_image/$pid";
+      imageProvider = NetworkImage(finalUrl);
+    }
+
     Color statusColor = Colors.green;
     String statusText = "Selesai";
     Color bgStatusColor = Colors.green.withOpacity(0.1);
@@ -159,148 +188,148 @@ class PesanansayaView extends GetView<PesanansayaController> {
           ),
         ],
       ),
-      child: Column(
-        children: [
-          // === HEADER KARTU ===
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () =>
+              Get.to(() => const DetailpesanansayaView(), arguments: item),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      "Order #$orderId",
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Order #$orderId",
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            date,
+                            style: TextStyle(
+                              color: Colors.grey[500],
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      date,
-                      style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: bgStatusColor,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        statusText,
+                        style: TextStyle(
+                          color: statusColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                        ),
+                      ),
                     ),
                   ],
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: bgStatusColor,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    statusText,
-                    style: TextStyle(
-                      color: statusColor,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
+                const Divider(height: 24, color: Color(0xFFF3F4F6)),
+                Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image(
+                        image: imageProvider,
+                        width: 60,
+                        height: 60,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            width: 60,
+                            height: 60,
+                            color: Colors.grey[200],
+                            child: const Icon(
+                              Icons.broken_image,
+                              color: Colors.grey,
+                            ),
+                          );
+                        },
+                      ),
                     ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const Divider(height: 1, color: Color(0xFFF3F4F6)),
-
-          // === BODY KARTU ===
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                // Gambar Produk
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: Container(
-                    width: 70,
-                    height: 70,
-                    color: Colors.grey[100],
-                    child: Image.network(
-                      imageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return const Center(
-                          child: Icon(
-                            Ionicons.image_outline,
-                            color: Colors.grey,
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            productName,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        );
-                      },
+                          const SizedBox(height: 4),
+                          Text(
+                            "$quantity Barang",
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 13,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            totalPrice,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                              color: _primaryBlue,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                if (rawItems.length > 1)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12.0),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.layers_outlined,
+                          size: 14,
+                          color: Colors.grey,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          "+ ${rawItems.length - 1} item lainnya",
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-
-                const SizedBox(width: 16),
-
-                // Info Item
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        "Produk Item", // Nama produk statis
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        "${item['quantity']} Barang",
-                        style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                      ),
-                      const SizedBox(height: 8),
-                      // HARGA YANG SUDAH DIPERBAIKI
-                      Text(
-                        totalPrice,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                          color: _primaryBlue,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
               ],
             ),
           ),
-
-          // === FOOTER ACTION ===
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                onPressed: () {
-                  Get.to(() => const DetailpesanansayaView(), arguments: item);
-                },
-                style: OutlinedButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  side: BorderSide(color: Colors.grey.shade300),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  backgroundColor: Colors.white,
-                ),
-                child: Text(
-                  "Lihat Detail Transaksi",
-                  style: TextStyle(
-                    color: Colors.grey[700],
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

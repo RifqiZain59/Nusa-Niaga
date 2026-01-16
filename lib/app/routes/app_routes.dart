@@ -18,6 +18,7 @@ abstract class Routes {
   static const LUPAPASSWORD = _Paths.LUPAPASSWORD;
   static const PESANANSAYA = _Paths.PESANANSAYA;
   static const DETAILPESANANSAYA = _Paths.DETAILPESANANSAYA;
+  static const SCANNER = _Paths.SCANNER;
 }
 
 abstract class _Paths {
@@ -37,4 +38,5 @@ abstract class _Paths {
   static const LUPAPASSWORD = '/lupapassword';
   static const PESANANSAYA = '/pesanansaya';
   static const DETAILPESANANSAYA = '/detailpesanansaya';
+  static const SCANNER = '/scanner';
 }

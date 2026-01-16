@@ -1,28 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:ionicons/ionicons.dart';
-import '../controllers/checkout_controller.dart';
+import '../controllers/checkout_controller.dart'; // Pastikan path ini sesuai
 
 class CheckoutView extends GetView<CheckoutController> {
   const CheckoutView({super.key});
 
-  static const Color _primaryColor = Color(0xFF2563EB);
-  static const Color _bgColor = Color(0xFFF5F7FA);
+  // --- Konstanta Warna ---
+  static const Color _primaryColor = Color(0xFF2563EB); // Biru Utama
+  static const Color _bgColor = Color(0xFFF5F7FA); // Abu-abu background
   static const Color _cardColor = Colors.white;
   static const Color _textDark = Color(0xFF1F2937);
   static const Color _textGrey = Color(0xFF6B7280);
-  static const Color _dangerColor = Color(
-    0xFFEF4444,
-  ); // Warna Merah untuk Hapus
+  static const Color _dangerColor = Color(0xFFEF4444); // Merah untuk Hapus
 
   @override
   Widget build(BuildContext context) {
+    // Safety check: Pastikan controller ter-inject
     if (!Get.isRegistered<CheckoutController>()) {
       Get.put(CheckoutController());
     }
 
     return Scaffold(
       backgroundColor: _bgColor,
+      // --- APP BAR ---
       appBar: AppBar(
         backgroundColor: _cardColor,
         elevation: 0.5,
@@ -40,6 +41,8 @@ class CheckoutView extends GetView<CheckoutController> {
           ),
         ),
       ),
+
+      // --- BODY ---
       body: Column(
         children: [
           Expanded(
@@ -49,7 +52,7 @@ class CheckoutView extends GetView<CheckoutController> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 1. INFO PEMESAN
+                  // 1. INFORMASI PEMESAN
                   _buildSectionTitle("Informasi Pemesan"),
                   Container(
                     padding: const EdgeInsets.all(16),
@@ -81,6 +84,7 @@ class CheckoutView extends GetView<CheckoutController> {
                                 ),
                               ),
                               const SizedBox(height: 4),
+                              // Mengambil Nama dari Controller (Reactive)
                               Obx(
                                 () => Text(
                                   controller.userName.value,
@@ -105,7 +109,7 @@ class CheckoutView extends GetView<CheckoutController> {
 
                   const SizedBox(height: 20),
 
-                  // 2. LOKASI
+                  // 2. LOKASI PENGANTARAN
                   _buildSectionTitle("Lokasi Pengantaran"),
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -168,6 +172,7 @@ class CheckoutView extends GetView<CheckoutController> {
                                 color: Colors.grey[200],
                                 width: 70,
                                 height: 70,
+                                child: const Icon(Icons.image_not_supported),
                               ),
                             ),
                           ),
@@ -210,7 +215,7 @@ class CheckoutView extends GetView<CheckoutController> {
 
                   const SizedBox(height: 20),
 
-                  // 4. PROMO & VOUCHER (UPDATE: Tombol Hapus/Pakai)
+                  // 4. PROMO & VOUCHER
                   _buildSectionTitle("Promo & Voucher"),
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -219,8 +224,7 @@ class CheckoutView extends GetView<CheckoutController> {
                     ),
                     decoration: _boxDecoration(),
                     child: Obx(() {
-                      final isApplied =
-                          controller.isPromoApplied.value; // Cek status promo
+                      final isApplied = controller.isPromoApplied.value;
                       final isFilled = controller.isPromoFilled.value;
 
                       return Row(
@@ -233,14 +237,13 @@ class CheckoutView extends GetView<CheckoutController> {
                           Expanded(
                             child: TextField(
                               controller: controller.promoController,
-                              readOnly:
-                                  isApplied, // Kunci input jika promo sedang dipakai
+                              readOnly: isApplied, // Kunci jika sudah dipakai
                               decoration: InputDecoration(
                                 hintText: isApplied
                                     ? 'Promo Digunakan'
                                     : 'Kode Promo (Cth: HEMAT)',
                                 border: InputBorder.none,
-                                hintStyle: TextStyle(
+                                hintStyle: const TextStyle(
                                   color: Colors.grey,
                                   fontSize: 14,
                                 ),
@@ -251,20 +254,19 @@ class CheckoutView extends GetView<CheckoutController> {
                               ),
                             ),
                           ),
-                          // TOMBOL DINAMIS (HAPUS / PAKAI)
+                          // TOMBOL: HAPUS / PAKAI
                           SizedBox(
                             height: 36,
                             child: ElevatedButton(
                               onPressed: isApplied
-                                  ? () => controller
-                                        .removePromo() // Jika aktif -> Hapus
+                                  ? () => controller.removePromo()
                                   : (isFilled
                                         ? () => controller.applyPromo()
-                                        : null), // Jika tidak -> Pakai (kalau ada isi)
+                                        : null),
 
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: isApplied
-                                    ? _dangerColor // Merah jika tombol Hapus
+                                    ? _dangerColor // Merah jika Hapus
                                     : (isFilled
                                           ? _primaryColor
                                           : Colors
@@ -309,17 +311,19 @@ class CheckoutView extends GetView<CheckoutController> {
                           ),
                           const SizedBox(height: 12),
 
-                          // Baris Diskon
-                          _buildSummaryRow(
-                            "Diskon",
-                            "-${controller.formatRupiah(controller.discount.value)}",
-                            isGreen: true,
-                          ),
+                          // Diskon (Hanya muncul jika ada)
+                          if (controller.discount.value > 0)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: _buildSummaryRow(
+                                "Diskon",
+                                "-${controller.formatRupiah(controller.discount.value)}",
+                                isGreen: true,
+                              ),
+                            ),
 
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 16),
-                            child: Divider(height: 1, color: Colors.grey),
-                          ),
+                          const Divider(height: 1, color: Colors.grey),
+                          const SizedBox(height: 16),
 
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -347,13 +351,15 @@ class CheckoutView extends GetView<CheckoutController> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 100),
+                  const SizedBox(
+                    height: 100,
+                  ), // Spasi bawah agar tombol tidak ketutup
                 ],
               ),
             ),
           ),
 
-          // BOTTOM BAR
+          // --- BOTTOM BUTTON (LANJUT PEMBAYARAN) ---
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
@@ -426,6 +432,8 @@ class CheckoutView extends GetView<CheckoutController> {
       ),
     );
   }
+
+  // --- HELPER WIDGETS ---
 
   BoxDecoration _boxDecoration() {
     return BoxDecoration(

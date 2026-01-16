@@ -3,7 +3,7 @@ import 'package:get/get.dart';
 import 'package:ionicons/ionicons.dart';
 import '../controllers/payment_controller.dart';
 
-class PaymentView extends GetView<PaymentController> {
+class PaymentView extends StatelessWidget {
   const PaymentView({super.key});
 
   // Warna Konsisten
@@ -21,9 +21,8 @@ class PaymentView extends GetView<PaymentController> {
 
   @override
   Widget build(BuildContext context) {
-    if (!Get.isRegistered<PaymentController>()) {
-      Get.put(PaymentController());
-    }
+    // [PENTING] Injeksi Controller
+    final PaymentController controller = Get.put(PaymentController());
 
     return Scaffold(
       backgroundColor: _bgColor,
@@ -125,11 +124,13 @@ class PaymentView extends GetView<PaymentController> {
                   // 2. E-Wallet Section
                   _buildPaymentGroup("E-Wallet", [
                     _paymentOption(
+                      controller, // [FIX] Tambahkan controller di sini
                       "Gopay",
                       "assets/icon/gopay.png",
                       isImage: true,
                     ),
                     _paymentOption(
+                      controller, // [FIX] Tambahkan controller di sini
                       "ShopeePay",
                       "assets/icon/shopeepay.png",
                       isImage: true,
@@ -141,12 +142,19 @@ class PaymentView extends GetView<PaymentController> {
                   // 3. Bank Transfer Section
                   _buildPaymentGroup("Transfer & Lainnya", [
                     _paymentOption(
+                      controller, // [FIX] Tambahkan controller di sini
                       "BCA Virtual Account",
                       "",
                       icon: Ionicons.card_outline,
                     ),
-                    _paymentOption("QRIS", "", icon: Ionicons.qr_code_outline),
                     _paymentOption(
+                      controller, // [FIX] Tambahkan controller di sini
+                      "QRIS",
+                      "",
+                      icon: Ionicons.qr_code_outline,
+                    ),
+                    _paymentOption(
+                      controller, // [FIX] Tambahkan controller di sini
                       "Tunai / Cash",
                       "",
                       icon: Ionicons.cash_outline,
@@ -251,6 +259,7 @@ class PaymentView extends GetView<PaymentController> {
   }
 
   Widget _paymentOption(
+    PaymentController controller, // Parameter controller wajib ada
     String name,
     String asset, {
     bool isImage = false,
@@ -259,7 +268,7 @@ class PaymentView extends GetView<PaymentController> {
     return Obx(() {
       final isSelected = controller.selectedMethod.value == name;
       return GestureDetector(
-        onTap: () => controller.selectMethod(name),
+        onTap: () => controller.selectMethod(name), // Mengubah state controller
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           margin: const EdgeInsets.only(bottom: 12),

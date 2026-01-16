@@ -1,11 +1,10 @@
-// lib/app/modules/keamananakun/controllers/keamananakun_controller.dart
-
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../data/api_service.dart';
+// Pastikan import profile controller benar
 import '../../Profile/controllers/profile_controller.dart';
 
 class KeamananakunController extends GetxController {
@@ -20,9 +19,7 @@ class KeamananakunController extends GetxController {
 
   File? imageFile;
   var selectedImagePath = ''.obs;
-
-  // TAMBAHAN: Untuk menyimpan URL gambar saat ini dari server
-  var currentImageUrl = ''.obs;
+  var currentAvatarUrl = ''.obs; // Menampung URL avatar saat ini
 
   @override
   void onInit() {
@@ -34,15 +31,19 @@ class KeamananakunController extends GetxController {
   }
 
   void loadCurrentData() async {
-    final prefs = await SharedPreferences.getInstance();
-    nameC.text = prefs.getString('user_name') ?? '';
-    emailC.text = prefs.getString('user_email') ?? '';
-
-    String userId = prefs.getString('user_id') ?? '';
-    if (userId.isNotEmpty) {
-      // Set URL gambar dari server. Tambahkan timestamp agar tidak cache.
-      currentImageUrl.value =
-          '${ApiService.baseUrl}/customer_image/$userId?v=${DateTime.now().millisecondsSinceEpoch}';
+    // Cara 1: Ambil dari ProfileController (Lebih cepat/konsisten)
+    if (Get.isRegistered<ProfileController>()) {
+      final profile = Get.find<ProfileController>().userProfile;
+      nameC.text = profile['name'] ?? '';
+      emailC.text = profile['email'] ?? '';
+      currentAvatarUrl.value = profile['avatar'] ?? '';
+    }
+    // Cara 2: Fallback ke SharedPreferences jika ProfileController mati
+    else {
+      final prefs = await SharedPreferences.getInstance();
+      nameC.text = prefs.getString('user_name') ?? '';
+      emailC.text = prefs.getString('user_email') ?? '';
+      currentAvatarUrl.value = prefs.getString('user_avatar') ?? '';
     }
   }
 
@@ -56,12 +57,12 @@ class KeamananakunController extends GetxController {
 
     if (image != null) {
       imageFile = File(image.path);
-      selectedImagePath.value = image.path;
+      selectedImagePath.value = image.path; // Update UI preview lokal
     }
   }
 
   Future<void> updateAccount() async {
-    if (nameC.text.isEmpty || emailC.text.isEmpty) {
+    if (nameC.text.trim().isEmpty || emailC.text.trim().isEmpty) {
       Get.snackbar("Error", "Nama dan Email tidak boleh kosong");
       return;
     }
@@ -71,6 +72,7 @@ class KeamananakunController extends GetxController {
       final prefs = await SharedPreferences.getInstance();
       String userId = prefs.getString('user_id') ?? '';
 
+      // 1. KIRIM DATA KE SERVER
       final response = await _apiService.updateProfile(
         userId: userId,
         name: nameC.text,
@@ -79,23 +81,41 @@ class KeamananakunController extends GetxController {
         imageFile: imageFile,
       );
 
+      // 2. CEK RESPON
       if (response['status'] == 'success') {
-        await prefs.setString('user_name', nameC.text);
-        await prefs.setString('user_email', emailC.text);
+        var newData = response['data'];
 
-        // Refresh halaman Profile jika controller-nya ada
+        // Ambil URL gambar baru dari respon server
+        // Sesuaikan key dengan backend ('photo_url', 'image_url', atau 'avatar')
+        String newAvatarUrl =
+            newData['photo_url'] ?? newData['image_url'] ?? '';
+
+        // 3. PENTING: SIMPAN KE PROFILE CONTROLLER AGAR PERMANEN
         if (Get.isRegistered<ProfileController>()) {
-          Get.find<ProfileController>().loadProfile();
+          final profileC = Get.find<ProfileController>();
+
+          await profileC.saveUserData(
+            id: userId,
+            name: newData['name'], // Nama dari server
+            email: newData['email'], // Email dari server
+            avatarUrl: newAvatarUrl.isNotEmpty ? newAvatarUrl : null,
+          );
+        } else {
+          // Fallback manual jika ProfileController belum di-put
+          await prefs.setString('user_name', newData['name']);
+          await prefs.setString('user_email', newData['email']);
+          if (newAvatarUrl.isNotEmpty) {
+            await prefs.setString('user_avatar', newAvatarUrl);
+          }
         }
 
-        Get.snackbar("Sukses", "Profil berhasil diperbarui");
-
-        // KEMBALI KE HALAMAN SEBELUMNYA (PROFILE)
-        Get.back();
+        Get.back(); // Kembali ke halaman Profile
+        Get.snackbar("Sukses", "Profil berhasil diperbarui!");
       } else {
         Get.snackbar("Gagal", response['message'] ?? "Terjadi kesalahan");
       }
     } catch (e) {
+      print("Error update: $e");
       Get.snackbar("Error", "Gagal update: $e");
     } finally {
       isLoading.value = false;

@@ -1,64 +1,90 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../data/api_service.dart';
-import '../../home/views/home_view.dart'; // Untuk redirect setelah sukses
+import '../../home/views/home_view.dart';
 
 class PaymentController extends GetxController {
-  final ApiService _apiService = ApiService();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Data dari Checkout
+  // Data dari Halaman Checkout
   var grandTotal = 0.0.obs;
   var orderId = "".obs;
-  var voucherCode = "".obs;
 
   // State UI
-  var selectedMethod = "Gopay".obs; // Default selected
+  var selectedMethod = "".obs; // Default kosong agar user memilih
   var isLoading = false.obs;
 
   @override
   void onInit() {
     super.onInit();
-    if (Get.arguments != null && Get.arguments is Map) {
+    // Ambil Data dari Arguments (dikirim dari Checkout)
+    if (Get.arguments != null) {
+      orderId.value = Get.arguments['order_id'] ?? "";
       grandTotal.value =
           double.tryParse(Get.arguments['grand_total'].toString()) ?? 0.0;
-      orderId.value = Get.arguments['order_id'] ?? "#ORD-000";
-      voucherCode.value = Get.arguments['voucher_code'] ?? "";
+
+      // Jika di checkout sudah pilih metode, set sebagai default
+      if (Get.arguments['transaction_data'] != null) {
+        var data = Get.arguments['transaction_data'];
+        if (data['payment_method'] != null) {
+          selectedMethod.value = data['payment_method'];
+        }
+      }
     }
   }
 
+  // Fungsi ganti pilihan di UI
   void selectMethod(String method) {
     selectedMethod.value = method;
   }
 
+  // --- PROSES PEMBAYARAN (UPDATE DATABASE) ---
   Future<void> processPayment() async {
+    // 1. Validasi
+    if (selectedMethod.value.isEmpty) {
+      Get.snackbar(
+        "Pilih Metode",
+        "Silakan pilih metode pembayaran terlebih dahulu.",
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    if (orderId.value.isEmpty) {
+      Get.snackbar(
+        "Error",
+        "Order ID tidak valid.",
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
     isLoading.value = true;
 
-    // Simulasi delay jaringan
-    await Future.delayed(const Duration(seconds: 2));
-
     try {
-      // Panggil API (Kirim data dummy item karena ini contoh)
-      // Di aplikasi nyata, Anda oper list items dari CheckoutController ke sini juga
-      final result = await _apiService.createTransaction(
-        customerId: "user_123", // Harusnya dari ProfileController
-        customerName: "Pelanggan App",
-        totalAmount: grandTotal.value,
-        paymentMethod: selectedMethod.value,
-        items: [], // Kirim items jika ada
-        voucherCode: voucherCode.value.isNotEmpty ? voucherCode.value : null,
-      );
+      // 2. UPDATE Firestore (Bukan Create Baru)
+      // Kita cari dokumen transaksi berdasarkan Order ID yang sudah dibuat di checkout
+      await _firestore.collection('transactions').doc(orderId.value).update({
+        'payment_method': selectedMethod.value, // Simpan metode pembayaran
+        'status': 'success', // Ubah status jadi sukses/lunas
+        'paid_at': DateTime.now().toIso8601String(),
+      });
 
       isLoading.value = false;
 
-      if (result['status'] == 'success' || true) {
-        // Force true untuk demo
-        _showSuccessDialog();
-      } else {
-        Get.snackbar("Gagal", "Transaksi gagal diproses");
-      }
+      // 3. Tampilkan Dialog Sukses
+      _showSuccessDialog();
     } catch (e) {
       isLoading.value = false;
-      Get.snackbar("Error", "Terjadi kesalahan koneksi");
+      print("Error payment: $e");
+      Get.snackbar(
+        "Gagal",
+        "Terjadi kesalahan sistem: $e",
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
     }
   }
 
@@ -90,7 +116,7 @@ class PaymentController extends GetxController {
           ),
           const SizedBox(height: 10),
           Text(
-            "Pesanan Anda ${orderId.value} telah berhasil dibayar menggunakan ${selectedMethod.value}.",
+            "Pesanan ${orderId.value} lunas via ${selectedMethod.value}.",
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.grey[600]),
           ),
@@ -98,6 +124,7 @@ class PaymentController extends GetxController {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
+              // Reset ke Home dan hapus history halaman sebelumnya
               onPressed: () => Get.offAll(() => const HomeView()),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF2563EB),

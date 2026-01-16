@@ -9,23 +9,24 @@ class HomeController extends GetxController {
   final ApiService _apiService = ApiService();
 
   // === STATE VARIABLES ===
-  var isLoading = true.obs;
+  var isLoading = true.obs; // Loading Awal (Spinner)
+  var isReloading = false.obs; // Loading Tarik Layar (Blur Box)
 
-  // Data Master (Database Lokal Sementara)
+  // Data User
+  var userName = "Pengguna".obs;
+  var address = "Mencari lokasi...".obs;
+
+  // Data Produk & Banner
   var allProducts = <dynamic>[].obs;
-
-  // Data Tampil (Hasil Filter)
   var filteredProducts = <dynamic>[].obs;
-
   var categoryList = <String>[].obs;
   var banners = <dynamic>[].obs;
 
   // Filter State
   var searchQuery = "".obs;
   var selectedCategory = "All".obs;
-  var address = "Mencari lokasi...".obs;
 
-  // Cache Internal untuk Favorit
+  // Cache Favorit
   final Set<String> _favoriteIds = {};
   String _currentUserId = "";
 
@@ -33,93 +34,115 @@ class HomeController extends GetxController {
   void onInit() {
     super.onInit();
 
-    // 1. Jalankan fungsi awal
-    fetchHomeData();
+    // 1. Load Data Awal
+    fetchHomeData(isRefresh: false); // Mode awal (Spinner)
     determinePosition();
 
-    // 2. Listener: Jika Search diketik, tunggu 500ms lalu filter
+    // 2. Listener Pencarian
     debounce(
       searchQuery,
       (_) => _applyFilters(),
       time: const Duration(milliseconds: 500),
     );
 
-    // 3. Listener: Jika Kategori berubah, langsung filter
+    // 3. Listener Kategori
     ever(selectedCategory, (_) => _applyFilters());
   }
 
-  // === FUNGSI UTAMA: AMBIL DATA ===
-  Future<void> fetchHomeData() async {
+  // === FUNGSI UTAMA FETCH DATA ===
+  // Parameter isRefresh menentukan jenis loading yang dipakai
+  Future<void> fetchHomeData({bool isRefresh = false}) async {
     try {
-      isLoading(true);
+      if (isRefresh) {
+        isReloading.value = true; // Aktifkan Blur
+      } else {
+        isLoading.value = true; // Aktifkan Spinner Awal
+      }
 
-      // A. Ambil User ID dari Login
+      // A. Ambil Data User Lokal
       final prefs = await SharedPreferences.getInstance();
       _currentUserId = prefs.getString('user_id') ?? '';
 
-      // B. Request Data dari Server secara Paralel (Biar Cepat)
+      // Update Nama User
+      String savedName = prefs.getString('user_name') ?? 'Pengguna';
+      List<String> names = savedName.split(' ');
+      userName.value = names.isNotEmpty ? names[0] : savedName;
+
+      // B. Request API Paralel
       var results = await Future.wait([
         _apiService.getBanners(),
         _apiService.getCategories(),
         _apiService.getProducts(),
-        // Hanya ambil favorit jika user sudah login
         if (_currentUserId.isNotEmpty)
           _apiService.getFavorites(_currentUserId)
         else
           Future.value([]),
       ]);
 
+      // Jika refresh, beri sedikit delay agar animasi blur terlihat smooth
+      if (isRefresh) await Future.delayed(const Duration(milliseconds: 800));
+
       var fetchedBanners = results[0] as List<dynamic>;
       var fetchedCategories = results[1] as List<dynamic>;
       var fetchedProducts = results[2] as List<dynamic>;
       var favoriteData = results[3] as List<dynamic>;
 
-      // C. Setup List Kategori
+      // C. Setup Kategori
       List<String> tempCats = ["All"];
       for (var item in fetchedCategories) {
-        // Pastikan key sesuai dengan response API ('name' atau 'category_name')
         tempCats.add(item['name'].toString());
       }
       categoryList.assignAll(tempCats);
 
-      // D. Setup Cache Favorit
+      // D. Setup Favorit
       _favoriteIds.clear();
       for (var fav in favoriteData) {
-        _favoriteIds.add(fav['product_id'].toString());
+        var pid = fav['product_id'] ?? fav['id'];
+        if (pid != null) _favoriteIds.add(pid.toString());
       }
 
-      // E. Gabungkan Data Produk dengan Status Favorit
+      // E. Mapping Produk & Favorit
       var processedProducts = _mapFavoritesToProducts(fetchedProducts);
 
       // F. Simpan ke State
       banners.assignAll(fetchedBanners);
       allProducts.assignAll(processedProducts);
 
-      // G. Terapkan Filter Awal (Tampilkan Semua)
+      // G. Terapkan Filter
       _applyFilters();
     } catch (e) {
       print("Error Fetch Home: $e");
-      // Jangan tampilkan snackbar error jika hanya masalah koneksi sesaat, cukup print
     } finally {
-      isLoading(false);
+      // Matikan Loading sesuai tipe
+      if (isRefresh) {
+        isReloading.value = false;
+      } else {
+        isLoading.value = false;
+      }
     }
   }
 
-  // === LOGIKA FILTER GABUNGAN ===
+  // === FUNGSI KHUSUS PULL-TO-REFRESH ===
+  // Dipanggil oleh RefreshIndicator di View
+  Future<void> refreshHomeData() async {
+    // Panggil fetchHomeData dengan mode refresh (Blur)
+    await fetchHomeData(isRefresh: true);
+    // Update lokasi juga saat refresh
+    determinePosition();
+  }
+
+  // ... (Sisa fungsi tidak berubah) ...
+
   void _applyFilters() {
-    // Mulai dari semua produk
     List<dynamic> result = List.from(allProducts);
 
-    // 1. Filter Kategori
     if (selectedCategory.value != "All") {
       result = result.where((p) {
         String cat = (p['category'] ?? '').toString();
-        // Case insensitive comparison
         return cat.toLowerCase() == selectedCategory.value.toLowerCase();
       }).toList();
     }
 
-    // 2. Filter Search
     if (searchQuery.value.isNotEmpty) {
       String query = searchQuery.value.toLowerCase();
       result = result.where((p) {
@@ -128,38 +151,28 @@ class HomeController extends GetxController {
       }).toList();
     }
 
-    // Update Tampilan
     filteredProducts.assignAll(result);
   }
 
-  // === HELPER: MAPPING FAVORIT ===
   List<dynamic> _mapFavoritesToProducts(List<dynamic> rawProducts) {
     return rawProducts.map((product) {
-      // Clone map agar tidak mengubah referensi asli secara tidak sengaja
       var newMap = Map<String, dynamic>.from(product);
       String pid = newMap['id'].toString();
-
-      // Cek apakah ID produk ada di daftar favorit user
       newMap['is_favorite'] = _favoriteIds.contains(pid);
       return newMap;
     }).toList();
   }
 
-  // === AKSI USER ===
-
-  // Ganti Kategori (Dipanggil dari View)
   void changeCategory(String category) {
     selectedCategory.value = category;
   }
 
-  // Toggle Favorit (Love)
   Future<void> toggleFavorite(String productId) async {
     if (_currentUserId.isEmpty) {
       Get.snackbar("Info", "Silakan login untuk menyimpan favorit");
       return;
     }
 
-    // 1. Optimistic Update (Ubah UI duluan biar responsif)
     bool isCurrentlyFav = _favoriteIds.contains(productId);
     if (isCurrentlyFav) {
       _favoriteIds.remove(productId);
@@ -167,22 +180,18 @@ class HomeController extends GetxController {
       _favoriteIds.add(productId);
     }
 
-    // 2. Refresh List Produk di UI
-    // Kita update data master dan data filter agar checkbox berubah
+    // Update UI Lokal dulu (Optimistic)
     allProducts.value = _mapFavoritesToProducts(allProducts);
     _applyFilters();
 
-    // 3. Kirim Request ke Server (Background)
-    await _apiService.toggleFavorite(_currentUserId, productId);
+    try {
+      await _apiService.toggleFavorite(_currentUserId, productId);
+    } catch (e) {
+      print("Gagal toggle fav: $e");
+      // Jika gagal, kembalikan state (opsional)
+    }
   }
 
-  // Refresh Pull-to-Refresh
-  Future<void> refreshHomeData() async {
-    await fetchHomeData();
-    await determinePosition();
-  }
-
-  // === GEOLOCATION ===
   Future<void> determinePosition() async {
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -195,13 +204,13 @@ class HomeController extends GetxController {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          address.value = "Izin Lokasi Ditolak";
+          address.value = "Izin Ditolak";
           return;
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
-        address.value = "Izin Lokasi Permanen Ditolak";
+        address.value = "Izin Permanen Ditolak";
         return;
       }
 
@@ -216,11 +225,14 @@ class HomeController extends GetxController {
 
       if (placemarks.isNotEmpty) {
         Placemark place = placemarks[0];
-        // Format: Kecamatan, Kota (Contoh: "Kebayoran Baru, Jakarta Selatan")
+        // Format alamat yang rapi
         address.value = "${place.subLocality ?? ''}, ${place.locality ?? ''}";
+        // Bersihkan koma di awal jika subLocality kosong
+        if (address.value.startsWith(", ")) {
+          address.value = address.value.substring(2);
+        }
       }
     } catch (e) {
-      print("Lokasi Error: $e");
       address.value = "Indonesia";
     }
   }

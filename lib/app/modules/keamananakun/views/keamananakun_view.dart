@@ -1,5 +1,3 @@
-// lib/app/modules/keamananakun/views/keamananakun_view.dart
-
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -12,6 +10,7 @@ class KeamananakunView extends GetView<KeamananakunController> {
 
   @override
   Widget build(BuildContext context) {
+    // Safety check: Pastikan controller ter-inject
     if (!Get.isRegistered<KeamananakunController>()) {
       Get.put(KeamananakunController());
     }
@@ -79,18 +78,17 @@ class KeamananakunView extends GetView<KeamananakunController> {
                             );
                           }
                           // 2. Prioritas Kedua: Gambar Server (Yang Sudah Ada)
+                          // PERBAIKAN: Menggunakan currentAvatarUrl
                           else if (controller
-                              .currentImageUrl
+                              .currentAvatarUrl
                               .value
                               .isNotEmpty) {
                             return CircleAvatar(
                               radius: 40,
                               backgroundColor: const Color(0xFFEFF6FF),
-                              // Gunakan foregroundImage agar bisa fallback ke child jika error
                               foregroundImage: NetworkImage(
-                                controller.currentImageUrl.value,
+                                controller.currentAvatarUrl.value,
                               ),
-                              // Child ditampilkan saat loading atau jika NetworkImage error
                               child: const Icon(
                                 Ionicons.person,
                                 size: 40,

@@ -1,7 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../../data/api_service.dart';
 
 // --- IMPORT LANGSUNG DISINI ---
@@ -50,15 +49,16 @@ class RegisterController extends GetxController {
         await userCredential.user!.sendEmailVerification();
 
         // 3. Simpan data ke Database Flask Anda
-        await _apiService.registrasiPengguna(
-          nameController.text.trim(),
-          emailController.text.trim(),
-          phoneController.text.trim(),
-          passwordController.text.trim(),
+        // PERBAIKAN: Gunakan 'registerPengguna' dan sesuaikan urutan parameternya
+        // Urutan di ApiService: (name, phone, password, email)
+        await _apiService.registerPengguna(
+          nameController.text.trim(), // name
+          phoneController.text.trim(), // phone
+          passwordController.text.trim(), // password
+          emailController.text.trim(), // email
         );
 
-        // 4. PINDAH HALAMAN DENGAN IMPORT CLASS
-        // Get.offAll() akan menghapus halaman login/register dari memori
+        // 4. PINDAH HALAMAN
         Get.offAll(
           () => const VerifikasiView(),
           arguments: {'email': emailController.text.trim()},
@@ -72,9 +72,15 @@ class RegisterController extends GetxController {
         );
       }
     } on FirebaseAuthException catch (e) {
-      Get.snackbar("Gagal", e.message ?? "Terjadi kesalahan pada Firebase");
+      String message = "Terjadi kesalahan";
+      if (e.code == 'email-already-in-use') {
+        message = "Email sudah terdaftar. Silakan login.";
+      } else if (e.code == 'weak-password') {
+        message = "Password terlalu lemah.";
+      }
+      Get.snackbar("Gagal", message, backgroundColor: Colors.orange);
     } catch (e) {
-      Get.snackbar("Error", "Gagal terhubung ke server");
+      Get.snackbar("Error", "Gagal terhubung: $e");
     } finally {
       isLoading.value = false;
     }
