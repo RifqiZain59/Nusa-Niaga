@@ -68,8 +68,7 @@ dev_dependencies:
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
-  image_path: "assets/logo_app/logo.jpg" 
-  min_sdk_android: 21
+  image_path: "assets/logo_app/logoapp.jpeg" 
 
 # The following section is specific to Flutter packages.
 flutter:
@@ -81,8 +80,8 @@ flutter:
 
   # To add assets to your application, add an assets section, like this:
   assets:
-    - assets/logo_app/logo.jpg
-    - assets/logo_app/logo2.png
+    - assets/logo_app/logoapp.jpeg
+    - assets/logo_app/logo.png
     - assets/slide/gambar1.jpg 
     - assets/slide/gambar2.jpg 
     - assets/slide/gambar3.jpg 

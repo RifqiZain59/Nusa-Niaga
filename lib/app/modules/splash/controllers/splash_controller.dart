@@ -1,23 +1,24 @@
 import 'package:get/get.dart';
+import 'package:nusaniaga/app/modules/onboarding/views/onboarding_view.dart';
 
 class SplashController extends GetxController {
-  //TODO: Implement SplashController
-
-  final count = 0.obs;
-  @override
-  void onInit() {
-    super.onInit();
-  }
-
   @override
   void onReady() {
     super.onReady();
+    // Memulai timer saat halaman selesai ditampilkan
+    _startTimer();
   }
 
-  @override
-  void onClose() {
-    super.onClose();
-  }
+  void _startTimer() async {
+    // Tunggu 5 detik
+    await Future.delayed(const Duration(seconds: 5));
 
-  void increment() => count.value++;
+    // Pindah ke OnboardingView
+    // Menggunakan Get.off() agar tidak bisa kembali (Back) ke Splash Screen
+    Get.off(
+      () => const OnboardingView(),
+      transition: Transition.fadeIn, // Efek transisi halus
+      duration: const Duration(milliseconds: 800),
+    );
+  }
 }

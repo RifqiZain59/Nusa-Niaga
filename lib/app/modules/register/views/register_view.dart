@@ -411,7 +411,7 @@ class RegisterView extends GetView<RegisterController> {
             height: 70,
             width: 70,
             child: Image.asset(
-              'assets/logo_app/logo2.png',
+              'assets/logo_app/logo.png',
               fit: BoxFit.contain,
               errorBuilder: (ctx, err, stack) => const Icon(
                 Icons.app_registration_rounded,

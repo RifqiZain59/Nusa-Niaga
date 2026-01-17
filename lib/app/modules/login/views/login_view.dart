@@ -470,7 +470,7 @@ class LoginView extends GetView<LoginController> {
         height: 80,
         width: 80,
         child: Image.asset(
-          'assets/logo_app/logo2.png',
+          'assets/logo_app/logo.png',
           fit: BoxFit.contain,
           errorBuilder: (ctx, err, stack) => const Icon(
             Icons.store_mall_directory_rounded,
