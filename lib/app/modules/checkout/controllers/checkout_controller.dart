@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // [WAJIB] Import ini
 import 'package:nusaniaga/app/data/api_service.dart';
-
-// Import ProfileController
-import '../../Profile/controllers/profile_controller.dart';
 
 class CheckoutController extends GetxController {
   final ApiService _apiService = ApiService();
@@ -40,19 +37,26 @@ class CheckoutController extends GetxController {
   var userName = "Loading...".obs;
   var userId = "".obs;
 
-  // [BARU] Simpan base64 lokal untuk UI saja, tidak dikirim ke API
+  // Simpan base64 gambar lokal untuk UI
   String? _localImageBase64;
 
   @override
   void onInit() {
     super.onInit();
+
+    // Listener untuk validasi tombol lanjut
     lokasiPemesananController.addListener(_validateForm);
     promoController.addListener(() {
       isPromoFilled.value = promoController.text.isNotEmpty;
     });
 
+    // 1. Load Data User dari Shared Preferences
     _loadUserData();
+
+    // 2. Load Data Pesanan (Arguments)
     _loadInitialOrderData();
+
+    // 3. Load Voucher
     _fetchVouchersFromApi();
   }
 
@@ -60,29 +64,24 @@ class CheckoutController extends GetxController {
     selectedPaymentMethod.value = method;
   }
 
-  // --- 1. LOAD USER DATA ---
+  // --- 1. LOAD USER DATA (SHARED PREFERENCES) ---
   void _loadUserData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+
+      // Ambil data user_id dan user_name yang disimpan saat Login
       String savedId = prefs.getString('user_id') ?? '';
-      String savedName = prefs.getString('user_name') ?? '';
+      String savedName = prefs.getString('user_name') ?? 'Pelanggan';
 
       if (savedId.isNotEmpty) {
         userId.value = savedId;
         userName.value = savedName;
       } else {
-        if (Get.isRegistered<ProfileController>()) {
-          final profile = Get.find<ProfileController>().userProfile;
-          userName.value = profile['name'] ?? "Pelanggan";
-          userId.value = profile['id'] ?? "";
-        } else {
-          Get.put(ProfileController());
-          final profile = Get.find<ProfileController>().userProfile;
-          userName.value = profile['name'] ?? "Pelanggan";
-        }
+        print("Warning: Data user tidak ditemukan di SharedPreferences");
+        userName.value = "Pelanggan (Guest)";
       }
     } catch (e) {
-      print("Error load user: $e");
+      print("Error loading SharedPreferences: $e");
       userName.value = "Pelanggan";
     }
   }
@@ -103,6 +102,7 @@ class CheckoutController extends GetxController {
 
       calculateTotal();
 
+      // Jika ada ID produk, ambil detail tambahan (termasuk gambar base64 jika ada di Firestore)
       if (orderData['id'] != null) {
         _fetchProductDetail(orderData['id'].toString());
       }
@@ -117,11 +117,11 @@ class CheckoutController extends GetxController {
         orderData['category'] = data['category'] ?? 'Umum';
         orderData['name'] = data['name'];
 
-        // Simpan gambar ke variabel lokal controller (hanya untuk UI)
+        // Ambil gambar base64 jika ada untuk ditampilkan di Checkout
         _localImageBase64 = data['image_base64'];
-
-        // Update UI agar gambar muncul di halaman Checkout ini
-        orderData['image_base64'] = _localImageBase64;
+        if (_localImageBase64 != null) {
+          orderData['image_base64'] = _localImageBase64;
+        }
         orderData.refresh();
       }
     } catch (e) {
@@ -162,25 +162,18 @@ class CheckoutController extends GetxController {
           "Potongan Rp ${formatRupiah(promoAmount)} diterapkan!",
           backgroundColor: Colors.green,
           colorText: Colors.white,
+          snackPosition: SnackPosition.TOP,
         );
       } else {
         Get.snackbar("Gagal", "Voucher valid tapi nominal 0");
       }
-    } else if (inputCode == 'HEMAT') {
-      discount.value = 5000.0;
-      isPromoApplied.value = true;
-      Get.snackbar(
-        "Info",
-        "Kode Test HEMAT Berhasil!",
-        backgroundColor: Colors.blue,
-        colorText: Colors.white,
-      );
     } else {
       Get.snackbar(
         "Gagal",
         "Kode voucher tidak valid",
         backgroundColor: Colors.red,
         colorText: Colors.white,
+        snackPosition: SnackPosition.TOP,
       );
     }
     calculateTotal();
@@ -196,6 +189,7 @@ class CheckoutController extends GetxController {
       "Penggunaan voucher dibatalkan",
       backgroundColor: Colors.orange,
       colorText: Colors.white,
+      snackPosition: SnackPosition.TOP,
     );
   }
 
@@ -206,16 +200,26 @@ class CheckoutController extends GetxController {
     grandTotal.value = total < 0 ? 0 : total;
   }
 
-  // --- 5. PROSES CHECKOUT (API CALL) ---
+  // --- 5. PROSES CHECKOUT ---
   Future<void> processCheckout() async {
     if (grandTotal.value <= 0 && discount.value == 0 && itemPrice.value > 0)
       return;
 
+    // Validasi User ID
+    if (userId.value.isEmpty) {
+      Get.snackbar(
+        "Error",
+        "Data pengguna tidak ditemukan. Silakan login ulang.",
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
     isLoading.value = true;
 
     try {
-      // 1. Siapkan Item untuk dikirim ke API
-      // [PERUBAHAN]: image_base64 TIDAK dimasukkan ke sini agar payload ringan
+      // Data item untuk dikirim ke API
       List<Map<String, dynamic>> itemsToSend = [
         {
           'id': orderData['id'],
@@ -226,9 +230,9 @@ class CheckoutController extends GetxController {
         },
       ];
 
-      // 2. Panggil API Checkout
+      // Panggil API Checkout
       final response = await _apiService.checkout(
-        customerId: userId.value,
+        customerId: userId.value, // Menggunakan ID dari SharedPreferences
         items: itemsToSend,
         voucherCode: isPromoApplied.value ? promoController.text : null,
         paymentMethod: selectedPaymentMethod.value,
@@ -236,13 +240,10 @@ class CheckoutController extends GetxController {
         discount: discount.value,
       );
 
-      // 3. Handle Response
       if (response['status'] == 'success') {
         String orderId = response['data']['order_id'] ?? 'TRX-UNKNOWN';
 
-        // [PENTING] Data untuk halaman Payment (Receipt)
-        // Kita MASUKKAN LAGI image_base64 dari variabel lokal (_localImageBase64)
-        // agar di halaman Payment gambar tetap muncul tanpa perlu download ulang.
+        // Data untuk halaman Payment (Receipt)
         Map<String, dynamic> transactionDisplayData = {
           'order_id': orderId,
           'table_number': lokasiPemesananController.text,
@@ -251,7 +252,7 @@ class CheckoutController extends GetxController {
             {
               ...itemsToSend[0],
               'image_base64':
-                  _localImageBase64, // Pasang kembali gambar lokal di sini
+                  _localImageBase64, // Pasang gambar lokal agar muncul di struk
             },
           ],
           'summary': {
@@ -261,7 +262,7 @@ class CheckoutController extends GetxController {
           },
         };
 
-        // Pindah ke Halaman Payment
+        // Redirect ke Payment View
         Get.offNamed(
           '/payment',
           arguments: {

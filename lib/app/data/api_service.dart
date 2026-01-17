@@ -395,10 +395,7 @@ class ApiService {
   // Placeholder jika endpoint favorite belum ada di backend
   // Agar tidak error, kembalikan list kosong
   Future<List<dynamic>> getFavorites(String customerId) async {
-    // Jika backend punya endpoint favorites, uncomment baris bawah:
-    // final data = await _getListData('$baseUrl/favorites/$customerId');
-    // return data;
-    return [];
+    return []; // <--- Ini penyebabnya! Selalu kosong.
   }
 
   Future<Map<String, dynamic>> toggleFavorite(

@@ -7,15 +7,15 @@ import 'package:ionicons/ionicons.dart';
 import '../controllers/profile_controller.dart';
 import '../../../data/api_service.dart';
 
-// IMPORT HALAMAN KEAMANAN AKUN
+// --- IMPORT SEMUA HALAMAN TERKAIT ---
 import '../../keamananakun/views/keamananakun_view.dart';
+import '../../historylogin/views/historylogin_view.dart';
+// [PENTING] Sesuaikan path import di bawah ini dengan lokasi file kamu
+import '../../wishlist/views/wishlist_view.dart';
+import '../../pusatbantuan/views/pusatbantuan_view.dart';
 
-// [PERBAIKAN 1] Ubah ke StatelessWidget agar inisialisasi controller aman
 class ProfileView extends StatelessWidget {
-  // [PERBAIKAN 2] Inisialisasi Controller di sini (variable class)
   final ProfileController controller = Get.put(ProfileController());
-
-  // [PERBAIKAN 3] Tambahkan GlobalKey untuk menstabilkan Scaffold
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   ProfileView({super.key});
@@ -32,7 +32,6 @@ class ProfileView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Ambil padding atas (status bar) untuk edgeOffset
     final double topPadding = MediaQuery.of(context).padding.top;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -41,13 +40,11 @@ class ProfileView extends StatelessWidget {
         statusBarIconBrightness: Brightness.dark,
       ),
       child: Scaffold(
-        key: _scaffoldKey, // Pasang Key di sini
+        key: _scaffoldKey,
         backgroundColor: _backgroundColor,
         body: RefreshIndicator(
           onRefresh: controller.refreshProfile,
           color: _primaryBlue,
-          // [PERBAIKAN 4] Wajib tambahkan edgeOffset jika tidak ada AppBar standar
-          // Ini mencegah error "Scaffold.geometryOf" saat drag
           edgeOffset: topPadding + 20,
           child: SingleChildScrollView(
             physics: const BouncingScrollPhysics(
@@ -55,9 +52,7 @@ class ProfileView extends StatelessWidget {
             ),
             child: Column(
               children: [
-                // Jarak aman dari Status Bar
                 SizedBox(height: topPadding + 30),
-
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Column(
@@ -87,12 +82,7 @@ class ProfileView extends StatelessWidget {
                             title: 'History Login',
                             subtitle: 'Riwayat aktivitas masuk akun',
                             onTap: () {
-                              Get.snackbar(
-                                "Info",
-                                "Fitur History Login segera hadir",
-                                snackPosition: SnackPosition.BOTTOM,
-                                margin: const EdgeInsets.all(20),
-                              );
+                              Get.to(() => const HistoryloginView());
                             },
                           ),
                         ],
@@ -110,28 +100,34 @@ class ProfileView extends StatelessWidget {
                             onTap: () => Get.toNamed('/pesanansaya'),
                           ),
                           _buildDivider(),
+                          // --- NAVIGASI KE WISHLIST ---
                           _buildMenuItem(
                             icon: Ionicons.heart_outline,
                             title: 'Wishlist',
-                            onTap: () {},
+                            subtitle: 'Produk favorit yang disimpan',
+                            onTap: () {
+                              Get.to(() => const WishlistView());
+                            },
                           ),
                           _buildDivider(),
+                          // --- NAVIGASI KE PUSAT BANTUAN ---
                           _buildMenuItem(
                             icon: Ionicons.headset_outline,
                             title: 'Pusat Bantuan',
-                            onTap: () {},
+                            subtitle: 'Bantuan & FAQ aplikasi',
+                            onTap: () {
+                              Get.to(() => PusatbantuanView());
+                            },
                           ),
                         ],
                       ),
 
                       const SizedBox(height: 30),
 
-                      // 2. TOMBOL KELUAR
                       _buildLogoutButton(),
 
                       const SizedBox(height: 30),
 
-                      // INFO VERSI
                       const Text(
                         "Versi Aplikasi 1.0.0",
                         style: TextStyle(color: _textSecondary, fontSize: 12),
@@ -149,7 +145,7 @@ class ProfileView extends StatelessWidget {
     );
   }
 
-  // --- WIDGET HELPER (Tetap Sama) ---
+  // --- WIDGET HELPERS ---
 
   Widget _buildBlueIdentityCard() {
     return Container(
@@ -445,20 +441,100 @@ class ProfileView extends StatelessWidget {
     );
   }
 
+  // --- POP UP DIALOG MODERN ---
   void _showLogoutDialog() {
-    Get.defaultDialog(
-      title: "Konfirmasi",
-      titleStyle: const TextStyle(fontWeight: FontWeight.bold),
-      middleText: "Apakah Anda yakin ingin keluar?",
-      textConfirm: "Ya, Keluar",
-      textCancel: "Batal",
-      confirmTextColor: Colors.white,
-      buttonColor: Colors.red,
-      radius: 16,
-      onConfirm: () {
-        Get.back();
-        controller.logout();
-      },
+    Get.dialog(
+      Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Ionicons.log_out,
+                  color: Colors.red.shade600,
+                  size: 32,
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                "Keluar Akun?",
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: _textPrimary,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                "Anda harus memasukkan email dan kata sandi kembali untuk masuk ke aplikasi.",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: _textSecondary,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 32),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Get.back(),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: const Text(
+                        "Batal",
+                        style: TextStyle(
+                          color: _textSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Get.back();
+                        controller.logout();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red.shade600,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        "Keluar",
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+      transitionCurve: Curves.easeInOutBack,
     );
   }
 }

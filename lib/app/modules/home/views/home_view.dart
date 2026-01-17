@@ -1,26 +1,24 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:ionicons/ionicons.dart';
 
-// Import Controller
+// --- IMPORTS CONTROLLER & VIEWS ---
 import 'package:nusaniaga/app/modules/home/controllers/home_controller.dart';
 import 'package:nusaniaga/app/modules/detail_menu/controllers/detail_menu_controller.dart';
-
-// Import Views Lain
 import 'package:nusaniaga/app/modules/Poin/views/poin_view.dart';
 import 'package:nusaniaga/app/modules/Profile/views/profile_view.dart';
 import 'package:nusaniaga/app/modules/promo/views/promo_view.dart';
 import 'package:nusaniaga/app/modules/checkout/views/checkout_view.dart';
 import 'package:nusaniaga/app/modules/detail_menu/views/detail_menu_view.dart';
 
-// --- WARNA & HELPER ---
+// --- CONSTANTS COLOR ---
 const Color _kPrimaryColor = Color(0xFF2563EB);
 const Color _kSecondaryColor = Color(0xFF3B82F6);
 const Color _kBackgroundColor = Color(0xFFF8FAFC);
 const Color _kAccentColor = Color(0xFFFBBF24);
 
+// --- HELPER FUNCTION ---
 String formatRupiah(dynamic number) {
   if (number == null) return "Rp 0";
   int value = 0;
@@ -36,8 +34,7 @@ String formatRupiah(dynamic number) {
   }
   String str = value.toString();
   RegExp reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
-  String result = str.replaceAllMapped(reg, (Match m) => '${m[1]}.');
-  return "Rp $result";
+  return "Rp ${str.replaceAllMapped(reg, (Match m) => '${m[1]}.')}";
 }
 
 class HomeView extends StatefulWidget {
@@ -47,16 +44,18 @@ class HomeView extends StatefulWidget {
   State<HomeView> createState() => _HomeViewState();
 }
 
-class _HomeViewState extends State<HomeView> {
+class _HomeViewState extends State<HomeView>
+    with SingleTickerProviderStateMixin {
   final HomeController controller = Get.put(HomeController());
   int _selectedIndex = 0;
 
   @override
   Widget build(BuildContext context) {
+    // List Halaman Navigasi Bawah
     final List<Widget> pages = [
       _buildHomeContent(),
       const PromoView(),
-      const SizedBox(),
+      const SizedBox(), // Placeholder untuk FAB Tengah
       const PoinView(),
       ProfileView(),
     ];
@@ -75,6 +74,7 @@ class _HomeViewState extends State<HomeView> {
           index: _selectedIndex == 2 ? 0 : _selectedIndex,
           children: pages,
         ),
+        // TOMBOL KERANJANG MELAYANG (FAB)
         floatingActionButton: SizedBox(
           width: 65,
           height: 65,
@@ -92,6 +92,8 @@ class _HomeViewState extends State<HomeView> {
           ),
         ),
         floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+
+        // BOTTOM NAVIGATION BAR
         bottomNavigationBar: BottomAppBar(
           shape: const CircularNotchedRectangle(),
           notchMargin: 10.0,
@@ -116,7 +118,7 @@ class _HomeViewState extends State<HomeView> {
                 isSelected: _selectedIndex == 1,
                 onTap: () => setState(() => _selectedIndex = 1),
               ),
-              const SizedBox(width: 48),
+              const SizedBox(width: 48), // Spacing untuk FAB
               _NavBarItem(
                 icon: Ionicons.wallet_outline,
                 activeIcon: Ionicons.wallet,
@@ -138,8 +140,15 @@ class _HomeViewState extends State<HomeView> {
     );
   }
 
+  // KONTEN UTAMA HOME (TANPA BLUR)
   Widget _buildHomeContent() {
     return Obx(() {
+      // 1. JIKA LOADING AWAL -> TAMPILKAN SKELETON (Kotak-kotak loading)
+      if (controller.isLoading.value) {
+        return const _HomeSkeletonLoader();
+      }
+
+      // 2. JIKA DATA SUDAH ADA
       final slides = controller.banners
           .map((b) => {'image': b['image_url'] ?? b['image'] ?? ''})
           .toList();
@@ -164,14 +173,13 @@ class _HomeViewState extends State<HomeView> {
           'image': imgUrl,
           'description': product['description'] ?? '',
           'stock': product['stock'] ?? 0,
-          'is_favorite': product['is_favorite'] ?? false,
         };
       }).toList();
 
+      // HAPUS STACK & BACKDROP FILTER (BLUR)
+      // Gunakan RefreshIndicator langsung membungkus konten
       return RefreshIndicator(
-        color: Colors.transparent,
-        backgroundColor: Colors.transparent,
-        strokeWidth: 0,
+        color: _kPrimaryColor,
         displacement: 20,
         onRefresh: () async {
           await controller.refreshHomeData();
@@ -180,10 +188,10 @@ class _HomeViewState extends State<HomeView> {
           physics: const BouncingScrollPhysics(
             parent: AlwaysScrollableScrollPhysics(),
           ),
-          padding: EdgeInsets.zero,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // HEADER (Nama, Lokasi, Search)
               _ModernHeader(
                 name: controller.userName.value,
                 address: controller.address.value,
@@ -191,85 +199,54 @@ class _HomeViewState extends State<HomeView> {
                 onSearchChanged: (val) => controller.searchQuery.value = val,
                 onClearSearch: () => controller.searchQuery.value = "",
               ),
-              Stack(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (slides.isNotEmpty) ...[
-                          const Text(
-                            "Spesial Hari Ini 🔥",
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF1E293B),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          _CleanPromoSlider(promoSlides: slides),
-                          const SizedBox(height: 25),
-                        ],
-                        const Text(
-                          "Pilihan Menu",
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF1E293B),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        _CleanGridMenu(
-                          menu: displayProducts,
-                          onItemTap: (item) {
-                            Get.to(
-                              () => DetailMenuView(),
-                              arguments: item,
-                              binding: BindingsBuilder(() {
-                                Get.put(DetailMenuController());
-                              }),
-                            );
-                          },
-                          onFavoriteTap: (id) {
-                            controller.toggleFavorite(id);
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (controller.isReloading.value)
-                    Positioned.fill(
-                      child: ClipRect(
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
-                          child: Container(
-                            color: Colors.white.withOpacity(0.6),
-                            child: const Center(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  CircularProgressIndicator(
-                                    strokeWidth: 3,
-                                    color: _kPrimaryColor,
-                                  ),
-                                  SizedBox(height: 15),
-                                  Text(
-                                    "Memperbarui Data...",
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                      color: _kPrimaryColor,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
+
+              // ISI HALAMAN
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Promo Slider
+                    if (slides.isNotEmpty) ...[
+                      const Text(
+                        "Spesial Hari Ini 🔥",
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF1E293B),
                         ),
                       ),
+                      const SizedBox(height: 12),
+                      _CleanPromoSlider(promoSlides: slides),
+                      const SizedBox(height: 25),
+                    ],
+
+                    // Judul Menu
+                    const Text(
+                      "Pilihan Menu",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF1E293B),
+                      ),
                     ),
-                ],
+                    const SizedBox(height: 12),
+
+                    // Grid Menu (Produk)
+                    _CleanGridMenu(
+                      menu: displayProducts,
+                      onItemTap: (item) {
+                        Get.to(
+                          () => DetailMenuView(),
+                          arguments: item,
+                          binding: BindingsBuilder(() {
+                            Get.put(DetailMenuController());
+                          }),
+                        )?.then((_) => controller.refreshHomeData());
+                      },
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -278,6 +255,208 @@ class _HomeViewState extends State<HomeView> {
     });
   }
 }
+
+// =============================================================================
+//  WIDGETS TAMBAHAN (SKELETON & COMPONENTS)
+// =============================================================================
+
+// --- SKELETON LOADER (SHIMMER EFFECT) ---
+class _HomeSkeletonLoader extends StatefulWidget {
+  const _HomeSkeletonLoader();
+
+  @override
+  State<_HomeSkeletonLoader> createState() => _HomeSkeletonLoaderState();
+}
+
+class _HomeSkeletonLoaderState extends State<_HomeSkeletonLoader>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<Color?> _colorAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    )..repeat(reverse: true);
+    _colorAnimation = ColorTween(
+      begin: Colors.grey[300],
+      end: Colors.grey[100],
+    ).animate(_controller);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      physics: const NeverScrollableScrollPhysics(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header Skeleton
+          Container(
+            height: 200,
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(20, 50, 20, 20),
+            decoration: const BoxDecoration(
+              color: _kPrimaryColor,
+              borderRadius: BorderRadius.zero,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        AnimatedBuilder(
+                          animation: _colorAnimation,
+                          builder: (context, child) => Container(
+                            width: 100,
+                            height: 16,
+                            color: Colors.white24,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        AnimatedBuilder(
+                          animation: _colorAnimation,
+                          builder: (context, child) => Container(
+                            width: 150,
+                            height: 20,
+                            color: Colors.white30,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const CircleAvatar(
+                      radius: 20,
+                      backgroundColor: Colors.white24,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 30),
+                Container(
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: AnimatedBuilder(
+              animation: _colorAnimation,
+              builder: (context, child) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Banner Skeleton
+                    Container(
+                      width: 150,
+                      height: 20,
+                      color: _colorAnimation.value,
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      height: 150,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: _colorAnimation.value,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    const SizedBox(height: 25),
+
+                    // Menu Grid Skeleton
+                    Container(
+                      width: 120,
+                      height: 20,
+                      color: _colorAnimation.value,
+                    ),
+                    const SizedBox(height: 12),
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: 4,
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            mainAxisSpacing: 16,
+                            crossAxisSpacing: 16,
+                            childAspectRatio: 0.72,
+                          ),
+                      itemBuilder: (context, index) {
+                        return Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: _colorAnimation.value,
+                                    borderRadius: const BorderRadius.vertical(
+                                      top: Radius.circular(16),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(10),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Container(
+                                      width: 80,
+                                      height: 14,
+                                      color: _colorAnimation.value,
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Container(
+                                      width: 50,
+                                      height: 10,
+                                      color: _colorAnimation.value,
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Container(
+                                      width: 60,
+                                      height: 14,
+                                      color: _colorAnimation.value,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// --- WIDGET LAINNYA (HEADER, SLIDER, NAVBAR) TETAP SAMA ---
 
 class _ModernHeader extends StatelessWidget {
   final String name;
@@ -304,7 +483,6 @@ class _ModernHeader extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [_kPrimaryColor, Color(0xFF1D4ED8)],
         ),
-        // 👇 PERBAIKAN: Diubah menjadi zero (kotak, tidak melengkung)
         borderRadius: BorderRadius.zero,
       ),
       padding: EdgeInsets.only(
@@ -427,16 +605,49 @@ class _ModernHeader extends StatelessWidget {
   }
 }
 
+class _CleanPromoSlider extends StatelessWidget {
+  final List<Map<String, dynamic>> promoSlides;
+  const _CleanPromoSlider({required this.promoSlides});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 150,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: promoSlides.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 15),
+        itemBuilder: (context, index) {
+          return Container(
+            width: 300,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              color: Colors.grey[200],
+              image: DecorationImage(
+                image: NetworkImage(promoSlides[index]['image']),
+                fit: BoxFit.cover,
+                onError: (e, s) {},
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 class _CleanGridMenu extends StatelessWidget {
   final List<Map<String, dynamic>> menu;
   final Function(Map<String, dynamic>) onItemTap;
-  final Function(String) onFavoriteTap;
 
-  const _CleanGridMenu({
-    required this.menu,
-    required this.onItemTap,
-    required this.onFavoriteTap,
-  });
+  const _CleanGridMenu({required this.menu, required this.onItemTap});
 
   @override
   Widget build(BuildContext context) {
@@ -475,7 +686,6 @@ class _CleanGridMenu extends StatelessWidget {
       ),
       itemBuilder: (context, index) {
         final item = menu[index];
-        final bool isFav = item['is_favorite'] == true;
         double rating = item['rating'] ?? 0.0;
         String ratingStr = rating <= 0 ? "Baru" : rating.toStringAsFixed(1);
 
@@ -552,25 +762,6 @@ class _CleanGridMenu extends StatelessWidget {
                           ),
                         ),
                       ),
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: GestureDetector(
-                          onTap: () => onFavoriteTap(item['id']),
-                          child: Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.white,
-                            ),
-                            child: Icon(
-                              isFav ? Ionicons.heart : Ionicons.heart_outline,
-                              color: isFav ? Colors.red : Colors.grey[400],
-                              size: 18,
-                            ),
-                          ),
-                        ),
-                      ),
                     ],
                   ),
                 ),
@@ -601,7 +792,6 @@ class _CleanGridMenu extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      // 👇 PERBAIKAN: Baris harga sekarang hanya berisi teks harga (kotak icon plus dihapus)
                       Text(
                         formatRupiah(item['price']),
                         style: const TextStyle(
@@ -618,44 +808,6 @@ class _CleanGridMenu extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-}
-
-class _CleanPromoSlider extends StatelessWidget {
-  final List<Map<String, dynamic>> promoSlides;
-  const _CleanPromoSlider({required this.promoSlides});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 150,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: promoSlides.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 15),
-        itemBuilder: (context, index) {
-          return Container(
-            width: 300,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              color: Colors.grey[200],
-              image: DecorationImage(
-                image: NetworkImage(promoSlides[index]['image']),
-                fit: BoxFit.cover,
-                onError: (e, s) {},
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
     );
   }
 }

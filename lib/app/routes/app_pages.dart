@@ -14,6 +14,8 @@ import '../modules/detail_poin/bindings/detail_poin_binding.dart';
 import '../modules/detail_poin/views/detail_poin_view.dart';
 import '../modules/detailpesanansaya/bindings/detailpesanansaya_binding.dart';
 import '../modules/detailpesanansaya/views/detailpesanansaya_view.dart';
+import '../modules/historylogin/bindings/historylogin_binding.dart';
+import '../modules/historylogin/views/historylogin_view.dart';
 import '../modules/home/bindings/home_binding.dart';
 import '../modules/home/views/home_view.dart';
 import '../modules/keamananakun/bindings/keamananakun_binding.dart';
@@ -30,12 +32,16 @@ import '../modules/pesanansaya/bindings/pesanansaya_binding.dart';
 import '../modules/pesanansaya/views/pesanansaya_view.dart';
 import '../modules/promo/bindings/promo_binding.dart';
 import '../modules/promo/views/promo_view.dart';
+import '../modules/pusatbantuan/bindings/pusatbantuan_binding.dart';
+import '../modules/pusatbantuan/views/pusatbantuan_view.dart';
 import '../modules/register/bindings/register_binding.dart';
 import '../modules/register/views/register_view.dart';
 import '../modules/splash/bindings/splash_binding.dart';
 import '../modules/splash/views/splash_view.dart';
 import '../modules/verifikasi/bindings/verifikasi_binding.dart';
 import '../modules/verifikasi/views/verifikasi_view.dart';
+import '../modules/wishlist/bindings/wishlist_binding.dart';
+import '../modules/wishlist/views/wishlist_view.dart';
 
 part 'app_routes.dart';
 
@@ -134,6 +140,21 @@ class AppPages {
       name: _Paths.SPLASH,
       page: () => const SplashView(),
       binding: SplashBinding(),
+    ),
+    GetPage(
+      name: _Paths.WISHLIST,
+      page: () => const WishlistView(),
+      binding: WishlistBinding(),
+    ),
+    GetPage(
+      name: _Paths.HISTORYLOGIN,
+      page: () => const HistoryloginView(),
+      binding: HistoryloginBinding(),
+    ),
+    GetPage(
+      name: _Paths.PUSATBANTUAN,
+      page: () => PusatbantuanView(),
+      binding: PusatbantuanBinding(),
     ),
   ];
 }

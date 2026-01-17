@@ -9,11 +9,8 @@ import '../../register/views/register_view.dart';
 class LoginView extends GetView<LoginController> {
   const LoginView({super.key});
 
-  // --- PALETTE WARNA ---
   static const Color primaryBlue = Color(0xFF2962FF);
   static const Color lightBlue = Color(0xFF448AFF);
-  static const Color darkBlue = Color(0xFF0D47A1);
-  static const Color bgBlue = Color(0xFFF0F4FD);
   static const Color textDark = Color(0xFF1E293B);
 
   @override
@@ -24,44 +21,48 @@ class LoginView extends GetView<LoginController> {
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
-        systemNavigationBarColor: bgBlue,
-        systemNavigationBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: primaryBlue,
+        systemNavigationBarIconBrightness: Brightness.light,
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.dark,
+        statusBarIconBrightness: Brightness.light,
       ),
       child: Scaffold(
         resizeToAvoidBottomInset: true,
-        backgroundColor: bgBlue,
         body: SizedBox(
           height: Get.height,
           width: Get.width,
           child: Stack(
             children: [
-              // --- BACKGROUND DECORATION ---
+              // --- 1. BACKGROUND BIRU SOLID ---
+              Positioned.fill(child: Container(color: primaryBlue)),
+
+              // --- 2. ICON TRANSPARAN (WATERMARK) ---
               Positioned(
-                top: -80,
-                right: -60,
-                child: _buildGradientCircle(
-                  size: 300,
-                  colors: [
-                    primaryBlue.withOpacity(0.4),
-                    Colors.lightBlueAccent.withOpacity(0.1),
-                  ],
+                top: -30,
+                right: -40,
+                child: Opacity(
+                  opacity: 0.1,
+                  child: Icon(
+                    Icons.store_mall_directory_rounded,
+                    size: 280,
+                    color: Colors.white,
+                  ),
                 ),
               ),
               Positioned(
-                bottom: -100,
-                left: -60,
-                child: _buildGradientCircle(
-                  size: 350,
-                  colors: [
-                    darkBlue.withOpacity(0.3),
-                    Colors.blue.withOpacity(0.05),
-                  ],
+                bottom: -50,
+                left: -30,
+                child: Opacity(
+                  opacity: 0.07,
+                  child: Icon(
+                    Icons.shopping_bag_outlined,
+                    size: 220,
+                    color: Colors.white,
+                  ),
                 ),
               ),
 
-              // --- MAIN CONTENT ---
+              // --- 3. MAIN CONTENT (MENGGUNAKAN DESIGN AWAL ANDA) ---
               SafeArea(
                 child: Center(
                   child: SingleChildScrollView(
@@ -71,12 +72,11 @@ class LoginView extends GetView<LoginController> {
                       vertical: 20,
                     ),
                     child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        _buildHeader(),
+                        _buildHeader(), // Asset logo dikembalikan
                         const SizedBox(height: 30),
 
-                        // --- GLASS CARD FORM ---
+                        // --- GLASS CARD FORM (DESIGN AWAL ANDA) ---
                         ClipRRect(
                           borderRadius: BorderRadius.circular(32),
                           child: BackdropFilter(
@@ -92,7 +92,7 @@ class LoginView extends GetView<LoginController> {
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: primaryBlue.withOpacity(0.1),
+                                    color: Colors.black.withOpacity(0.1),
                                     blurRadius: 24,
                                     offset: const Offset(0, 10),
                                   ),
@@ -120,19 +120,14 @@ class LoginView extends GetView<LoginController> {
                                     ),
                                   ),
                                   const SizedBox(height: 28),
-
-                                  // 1. INPUT EMAIL
                                   _buildInput(
                                     label: "Email",
                                     hint: "email@anda.com",
                                     icon: Icons.alternate_email_rounded,
-                                    keyboardType: TextInputType.emailAddress,
                                     controller: controller.emailController,
-                                    textInputAction: TextInputAction.next,
+                                    keyboardType: TextInputType.emailAddress,
                                   ),
                                   const SizedBox(height: 18),
-
-                                  // 2. INPUT PASSWORD
                                   Obx(
                                     () => _buildInput(
                                       label: "Password",
@@ -140,7 +135,6 @@ class LoginView extends GetView<LoginController> {
                                       icon: Icons.lock_outline_rounded,
                                       controller: controller.passwordController,
                                       isPassword: controller.isObscure.value,
-                                      textInputAction: TextInputAction.done,
                                       suffixIcon: IconButton(
                                         onPressed: () =>
                                             controller.togglePassword(),
@@ -154,38 +148,24 @@ class LoginView extends GetView<LoginController> {
                                       ),
                                     ),
                                   ),
-
                                   const SizedBox(height: 12),
-
-                                  // 3. LUPA PASSWORD (NAVIGASI KE FORGOT PASSWORD)
                                   Align(
                                     alignment: Alignment.centerRight,
                                     child: InkWell(
-                                      onTap: () {
-                                        // Pindah ke halaman Forgot Password
-                                        Get.to(() => const LupapasswordView());
-                                      },
-                                      borderRadius: BorderRadius.circular(8),
-                                      child: const Padding(
-                                        padding: EdgeInsets.symmetric(
-                                          horizontal: 4,
-                                          vertical: 4,
-                                        ),
-                                        child: Text(
-                                          "Lupa Password?",
-                                          style: TextStyle(
-                                            color: primaryBlue,
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 13,
-                                          ),
+                                      onTap: () => Get.to(
+                                        () => const LupapasswordView(),
+                                      ),
+                                      child: const Text(
+                                        "Lupa Password?",
+                                        style: TextStyle(
+                                          color: primaryBlue,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 13,
                                         ),
                                       ),
                                     ),
                                   ),
-
                                   const SizedBox(height: 24),
-
-                                  // 4. TOMBOL LOGIN
                                   Obx(
                                     () => _buildSubmitButton(
                                       controller.isLoading.value
@@ -193,80 +173,13 @@ class LoginView extends GetView<LoginController> {
                                           : "MASUK",
                                     ),
                                   ),
-
-                                  const SizedBox(height: 24),
-
-                                  // DIVIDER
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Divider(
-                                          color: Colors.grey.shade300,
-                                        ),
-                                      ),
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                        ),
-                                        child: Text(
-                                          "atau masuk dengan",
-                                          style: TextStyle(
-                                            color: Colors.grey.shade500,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ),
-                                      Expanded(
-                                        child: Divider(
-                                          color: Colors.grey.shade300,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-
-                                  const SizedBox(height: 20),
-
-                                  // 5. TOMBOL GOOGLE
-                                  _buildGoogleButton(),
                                 ],
                               ),
                             ),
                           ),
                         ),
-
                         const SizedBox(height: 30),
-
-                        // FOOTER KE REGISTER
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              "Belum punya akun? ",
-                              style: TextStyle(
-                                color: textDark.withOpacity(0.7),
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            GestureDetector(
-                              onTap: () => Get.off(() => const RegisterView()),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 4,
-                                  vertical: 4,
-                                ),
-                                child: const Text(
-                                  "Daftar Sekarang",
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: primaryBlue,
-                                    fontSize: 15,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
+                        _buildFooterLink(),
                       ],
                     ),
                   ),
@@ -279,8 +192,7 @@ class LoginView extends GetView<LoginController> {
     );
   }
 
-  // --- WIDGET HELPERS ---
-
+  // --- HELPER DESIGN AWAL ---
   Widget _buildInput({
     required String label,
     required String hint,
@@ -288,7 +200,6 @@ class LoginView extends GetView<LoginController> {
     required TextEditingController controller,
     bool isPassword = false,
     TextInputType keyboardType = TextInputType.text,
-    TextInputAction textInputAction = TextInputAction.done,
     Widget? suffixIcon,
   }) {
     return Column(
@@ -305,49 +216,28 @@ class LoginView extends GetView<LoginController> {
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: Colors.grey.shade50,
+            color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.03),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
+            border: Border.all(color: Colors.grey.shade200),
           ),
           child: TextField(
             controller: controller,
             obscureText: isPassword,
             keyboardType: keyboardType,
-            textInputAction: textInputAction,
             style: const TextStyle(
               fontWeight: FontWeight.w600,
               color: textDark,
             ),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
               prefixIcon: Icon(
                 icon,
                 color: primaryBlue.withOpacity(0.8),
                 size: 22,
               ),
               suffixIcon: suffixIcon,
-              filled: true,
-              fillColor: Colors.white,
+              border: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(vertical: 16),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide.none,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(color: Colors.grey.shade200, width: 1),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: const BorderSide(color: primaryBlue, width: 2),
-              ),
             ),
           ),
         ),
@@ -361,18 +251,7 @@ class LoginView extends GetView<LoginController> {
       height: 55,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
-        gradient: const LinearGradient(
-          colors: [primaryBlue, lightBlue],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: primaryBlue.withOpacity(0.4),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        gradient: const LinearGradient(colors: [primaryBlue, lightBlue]),
       ),
       child: ElevatedButton(
         onPressed: controller.isLoading.value ? null : () => controller.login(),
@@ -383,70 +262,13 @@ class LoginView extends GetView<LoginController> {
             borderRadius: BorderRadius.circular(18),
           ),
         ),
-        child: controller.isLoading.value
-            ? const SizedBox(
-                height: 24,
-                width: 24,
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 2.5,
-                ),
-              )
-            : Text(
-                label,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 16,
-                  letterSpacing: 1.2,
-                ),
-              ),
-      ),
-    );
-  }
-
-  Widget _buildGoogleButton() {
-    return Container(
-      width: double.infinity,
-      height: 55,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w800,
+            fontSize: 16,
           ),
-        ],
-      ),
-      child: OutlinedButton(
-        onPressed: () => Get.snackbar("Info", "Login Google Clicked"),
-        style: OutlinedButton.styleFrom(
-          side: const BorderSide(color: Colors.transparent),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.network(
-              'https://cdn1.iconfinder.com/data/icons/google-s-logo/150/Google_Icons-09-512.png',
-              height: 24,
-              errorBuilder: (ctx, err, stack) =>
-                  const Icon(Icons.public, color: Colors.blue),
-            ),
-            const SizedBox(width: 12),
-            const Text(
-              "Google",
-              style: TextStyle(
-                color: textDark,
-                fontWeight: FontWeight.w700,
-                fontSize: 15,
-              ),
-            ),
-          ],
         ),
       ),
     );
@@ -459,44 +281,42 @@ class LoginView extends GetView<LoginController> {
         shape: BoxShape.circle,
         color: Colors.white,
         boxShadow: [
-          BoxShadow(
-            color: primaryBlue.withOpacity(0.15),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
+          BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20),
         ],
       ),
       child: SizedBox(
         height: 80,
         width: 80,
         child: Image.asset(
-          'assets/logo_app/logo.png',
+          'assets/logo_app/logo.png', // Asset asli dikembalikan
           fit: BoxFit.contain,
-          errorBuilder: (ctx, err, stack) => const Icon(
-            Icons.store_mall_directory_rounded,
-            size: 50,
-            color: primaryBlue,
-          ),
+          errorBuilder: (_, __, ___) =>
+              const Icon(Icons.store, size: 50, color: primaryBlue),
         ),
       ),
     );
   }
 
-  Widget _buildGradientCircle({
-    required double size,
-    required List<Color> colors,
-  }) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(
-          colors: colors,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+  Widget _buildFooterLink() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Text(
+          "Belum punya akun? ",
+          style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w500),
         ),
-      ),
+        GestureDetector(
+          onTap: () => Get.off(() => const RegisterView()),
+          child: const Text(
+            "Daftar Sekarang",
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+              fontSize: 15,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:ionicons/ionicons.dart';
 
@@ -7,155 +8,210 @@ import '../controllers/lupapassword_controller.dart';
 class LupapasswordView extends GetView<LupapasswordController> {
   const LupapasswordView({super.key});
 
-  // Warna Utama
+  // Warna Utama Tema Biru
   static const Color _primaryBlue = Color(0xFF2563EB);
-  static const Color _textPrimary = Color(0xFF1F2937);
-  static const Color _textSecondary = Color(0xFF6B7280);
+  static const Color _darkBlue = Color(0xFF1E40AF); // Ini warna dasar bawah
 
   @override
   Widget build(BuildContext context) {
-    // ============================================================
-    // SOLUSI ERROR: Inject Controller jika belum ada
-    // ============================================================
+    // PENGATURAN STATUS BAR & NAVIGATION BAR MENYESUAIKAN BG
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+
+        // MODIFIKASI DISINI:
+        systemNavigationBarColor:
+            _darkBlue, // Menyesuaikan warna biru gelap di bawah
+        systemNavigationBarIconBrightness:
+            Brightness.light, // Ikon navigasi jadi PUTIH
+      ),
+    );
+
     if (!Get.isRegistered<LupapasswordController>()) {
       Get.put(LupapasswordController());
     }
 
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          onPressed: () => Get.back(),
-          icon: const Icon(Ionicons.arrow_back, color: _textPrimary),
-        ),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 20),
-
-              // 1. HEADER ILUSTRASI
-              Center(
-                child: Container(
-                  width: 120,
-                  height: 120,
-                  decoration: BoxDecoration(
-                    color: _primaryBlue.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Ionicons.lock_open_outline,
-                    size: 60,
-                    color: _primaryBlue,
-                  ),
-                ),
+      // Penting: Cegah resize saat keyboard muncul agar gradient tetap penuh
+      resizeToAvoidBottomInset: false,
+      body: Stack(
+        children: [
+          // BACKGROUND GRADIENT BIRU
+          Container(
+            width: double.infinity,
+            height: double.infinity,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [_primaryBlue, _darkBlue],
               ),
+            ),
+          ),
 
-              const SizedBox(height: 40),
+          // IKON DEKORASI TRANSPARAN
+          Positioned(
+            top: -40,
+            right: -40,
+            child: Icon(
+              Ionicons.key_outline,
+              size: 250,
+              color: Colors.white.withOpacity(0.07),
+            ),
+          ),
+          Positioned(
+            bottom: -20,
+            left: -30,
+            child: Icon(
+              Ionicons.shield_checkmark_outline,
+              size: 200,
+              color: Colors.white.withOpacity(0.05),
+            ),
+          ),
 
-              // 2. JUDUL & SUBJUDUL
-              const Text(
-                "Lupa Kata Sandi?",
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: _textPrimary,
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                "Jangan khawatir! Masukkan alamat email yang terdaftar pada akun Anda, kami akan mengirimkan link untuk mereset kata sandi.",
-                style: TextStyle(
-                  fontSize: 16,
-                  color: _textSecondary,
-                  height: 1.5,
-                ),
-              ),
-
-              const SizedBox(height: 40),
-
-              // 3. INPUT EMAIL
-              const Text(
-                "Email",
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: _textPrimary,
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: controller.emailC,
-                keyboardType: TextInputType.emailAddress,
-                decoration: InputDecoration(
-                  hintText: "Masukan email Anda",
-                  hintStyle: TextStyle(color: _textSecondary.withOpacity(0.6)),
-                  prefixIcon: const Icon(
-                    Ionicons.mail_outline,
-                    color: _textSecondary,
-                  ),
-                  filled: true,
-                  fillColor: const Color(0xFFF9FAFB),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
-                      color: _primaryBlue,
-                      width: 1.5,
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 32),
-
-              // 4. TOMBOL KIRIM
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: Obx(() {
-                  return ElevatedButton(
-                    onPressed: controller.isLoading.value
-                        ? null
-                        : () => controller.sendResetPasswordLink(),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _primaryBlue,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+          // KONTEN UTAMA
+          SafeArea(
+            child: Column(
+              children: [
+                Align(
+                  alignment: Alignment.topLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 8.0, top: 8.0),
+                    child: IconButton(
+                      onPressed: () => Get.back(),
+                      icon: const Icon(
+                        Ionicons.arrow_back,
+                        color: Colors.white,
                       ),
-                      elevation: 0,
                     ),
-                    child: controller.isLoading.value
-                        ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
+                  ),
+                ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 20),
+                        Center(
+                          child: Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.15),
+                              shape: BoxShape.circle,
                             ),
-                          )
-                        : const Text(
-                            "Kirim Link Reset",
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                            child: const Icon(
+                              Ionicons.lock_open_outline,
+                              size: 64,
+                              color: Colors.white,
                             ),
                           ),
-                  );
-                }),
-              ),
-            ],
+                        ),
+                        const SizedBox(height: 40),
+                        const Text(
+                          "Lupa Kata Sandi?",
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          "Masukkan email terdaftar Anda untuk menerima tautan reset kata sandi.",
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.white.withOpacity(0.85),
+                            height: 1.5,
+                          ),
+                        ),
+                        const SizedBox(height: 40),
+
+                        // Input Field
+                        const Text(
+                          "Alamat Email",
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        TextField(
+                          controller: controller.emailC,
+                          style: const TextStyle(color: Colors.white),
+                          cursorColor: Colors.white,
+                          decoration: InputDecoration(
+                            hintText: "nama@email.com",
+                            hintStyle: TextStyle(
+                              color: Colors.white.withOpacity(0.4),
+                            ),
+                            prefixIcon: const Icon(
+                              Ionicons.mail_outline,
+                              color: Colors.white70,
+                            ),
+                            filled: true,
+                            fillColor: Colors.white.withOpacity(0.1),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide(
+                                color: Colors.white.withOpacity(0.2),
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(
+                                color: Colors.white,
+                                width: 1.5,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+
+                        // Tombol
+                        SizedBox(
+                          width: double.infinity,
+                          height: 56,
+                          child: Obx(() {
+                            return ElevatedButton(
+                              onPressed: controller.isLoading.value
+                                  ? null
+                                  : () => controller.sendResetPasswordLink(),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                foregroundColor: _primaryBlue,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
+                              child: controller.isLoading.value
+                                  ? const SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: _primaryBlue,
+                                      ),
+                                    )
+                                  : const Text(
+                                      "Kirim Tautan Reset",
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                            );
+                          }),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

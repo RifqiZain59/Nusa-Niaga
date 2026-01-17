@@ -21,6 +21,9 @@ abstract class Routes {
   static const SCANNER = _Paths.SCANNER;
   static const ONBOARDING = _Paths.ONBOARDING;
   static const SPLASH = _Paths.SPLASH;
+  static const WISHLIST = _Paths.WISHLIST;
+  static const HISTORYLOGIN = _Paths.HISTORYLOGIN;
+  static const PUSATBANTUAN = _Paths.PUSATBANTUAN;
 }
 
 abstract class _Paths {
@@ -43,4 +46,7 @@ abstract class _Paths {
   static const SCANNER = '/scanner';
   static const ONBOARDING = '/onboarding';
   static const SPLASH = '/splash';
+  static const WISHLIST = '/wishlist';
+  static const HISTORYLOGIN = '/historylogin';
+  static const PUSATBANTUAN = '/pusatbantuan';
 }

@@ -1,47 +1,46 @@
 import 'package:get/get.dart';
-import 'package:nusaniaga/app/data/api_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class PromoController extends GetxController {
-  // Inisialisasi ApiService
-  final ApiService _apiService = ApiService();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // State untuk menampung data voucher asli dari database
-  var vouchers = <dynamic>[].obs;
-
-  // State untuk indikator loading
+  // State
   var isLoading = true.obs;
+  var vouchers = <DocumentSnapshot>[].obs;
 
   @override
   void onInit() {
     super.onInit();
-    // Memanggil data voucher segera setelah controller diinisialisasi
-    fetchVouchers();
+    fetchPromos();
   }
 
-  /// Fungsi untuk mengambil data asli dari API
-  Future<void> fetchVouchers() async {
-    try {
-      isLoading(true);
-      // Memanggil fungsi getVouchers dari ApiService
-      var fetchedData = await _apiService.getVouchers();
-
-      // Mengisi list vouchers dengan data asli
-      vouchers.assignAll(fetchedData);
-    } catch (e) {
-      // Menampilkan pesan error jika koneksi gagal
-      Get.snackbar(
-        'Error',
-        'Gagal mengambil data voucher: $e',
-        snackPosition: SnackPosition.BOTTOM,
-      );
-    } finally {
-      // Menghentikan loading setelah proses selesai (berhasil/gagal)
-      isLoading(false);
-    }
-  }
-
-  /// Fungsi untuk menarik data ulang (Pull to Refresh)
+  // Fungsi yang dipanggil saat tarik layat (Pull to Refresh)
   Future<void> refreshData() async {
-    await fetchVouchers();
+    // Kita tidak set isLoading = true disini agar UI tidak 'flicker' jadi skeleton
+    // cukup biarkan spinner refresh indicator yang berputar
+    await fetchPromos(isRefresh: true);
+  }
+
+  Future<void> fetchPromos({bool isRefresh = false}) async {
+    try {
+      // Hanya tampilkan skeleton loading jika ini bukan refresh (awal buka)
+      if (!isRefresh) {
+        isLoading.value = true;
+      }
+
+      // Ambil data dari collection 'vouchers'
+      QuerySnapshot snapshot = await _firestore
+          .collection('vouchers')
+          .where('is_active', isEqualTo: true)
+          .get();
+
+      // Update data
+      vouchers.assignAll(snapshot.docs);
+    } catch (e) {
+      print("Error fetch vouchers: $e");
+    } finally {
+      // Matikan loading
+      isLoading.value = false;
+    }
   }
 }
