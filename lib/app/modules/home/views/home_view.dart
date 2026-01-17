@@ -58,7 +58,7 @@ class _HomeViewState extends State<HomeView> {
       const PromoView(),
       const SizedBox(),
       const PoinView(),
-      const ProfileView(),
+      ProfileView(),
     ];
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -224,7 +224,7 @@ class _HomeViewState extends State<HomeView> {
                           menu: displayProducts,
                           onItemTap: (item) {
                             Get.to(
-                              () => const DetailMenuView(),
+                              () => DetailMenuView(),
                               arguments: item,
                               binding: BindingsBuilder(() {
                                 Get.put(DetailMenuController());

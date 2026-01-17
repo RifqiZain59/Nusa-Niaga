@@ -7,9 +7,12 @@ import 'package:ionicons/ionicons.dart';
 import '../controllers/detail_menu_controller.dart';
 import '../../checkout/views/checkout_view.dart';
 
-// [PERBAIKAN 1] Ubah ke StatelessWidget agar lebih aman saat inisialisasi controller
 class DetailMenuView extends StatelessWidget {
-  const DetailMenuView({super.key});
+  // [PERBAIKAN] Inisialisasi Controller di sini (level class), bukan di dalam build
+  final DetailMenuController controller = Get.put(DetailMenuController());
+
+  // [PERBAIKAN] Hapus 'const' karena inisialisasi controller di atas tidak konstan
+  DetailMenuView({super.key});
 
   String formatRibuan(double number) {
     String str = number.toInt().toString();
@@ -19,9 +22,6 @@ class DetailMenuView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // [PERBAIKAN 1] Injeksi Controller di sini
-    final DetailMenuController controller = Get.put(DetailMenuController());
-
     // --- COLOR CONFIGURATION ---
     const Color kPrimaryColor = Color(0xFF0D47A1);
     const Color kBackgroundColor = Color(0xFFF5F7FA);
@@ -50,7 +50,7 @@ class DetailMenuView extends StatelessWidget {
 
           final product = controller.product;
 
-          // [PERBAIKAN 3] Logika Gambar Aman
+          // Logika Gambar Aman
           final String imgRaw = product['image_url'] ?? product['image'] ?? '';
           final String category =
               product['category'] ?? product['type'] ?? 'Menu';
@@ -125,7 +125,7 @@ class DetailMenuView extends StatelessWidget {
                     color: kBackgroundColor,
                     borderRadius: BorderRadius.vertical(
                       top: Radius.circular(30),
-                    ), // Rounded Top
+                    ),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black12,
@@ -332,7 +332,6 @@ class DetailMenuView extends StatelessWidget {
                       ),
                     ],
                   ),
-                  // [PERBAIKAN 2] Tambahkan SafeArea agar aman di HP berponi/gesture bar
                   child: SafeArea(
                     top: false,
                     child: Row(

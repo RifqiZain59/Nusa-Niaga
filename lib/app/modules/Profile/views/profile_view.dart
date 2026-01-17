@@ -7,11 +7,18 @@ import 'package:ionicons/ionicons.dart';
 import '../controllers/profile_controller.dart';
 import '../../../data/api_service.dart';
 
-// IMPORT HALAMAN KEAMANAN AKUN (EDIT PROFIL)
+// IMPORT HALAMAN KEAMANAN AKUN
 import '../../keamananakun/views/keamananakun_view.dart';
 
-class ProfileView extends GetView<ProfileController> {
-  const ProfileView({super.key});
+// [PERBAIKAN 1] Ubah ke StatelessWidget agar inisialisasi controller aman
+class ProfileView extends StatelessWidget {
+  // [PERBAIKAN 2] Inisialisasi Controller di sini (variable class)
+  final ProfileController controller = Get.put(ProfileController());
+
+  // [PERBAIKAN 3] Tambahkan GlobalKey untuk menstabilkan Scaffold
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  ProfileView({super.key});
 
   // --- PALET WARNA ---
   static const Color _primaryBlue = Color(0xFF2563EB);
@@ -25,9 +32,8 @@ class ProfileView extends GetView<ProfileController> {
 
   @override
   Widget build(BuildContext context) {
-    if (!Get.isRegistered<ProfileController>()) {
-      Get.put(ProfileController());
-    }
+    // Ambil padding atas (status bar) untuk edgeOffset
+    final double topPadding = MediaQuery.of(context).padding.top;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
@@ -35,25 +41,28 @@ class ProfileView extends GetView<ProfileController> {
         statusBarIconBrightness: Brightness.dark,
       ),
       child: Scaffold(
+        key: _scaffoldKey, // Pasang Key di sini
         backgroundColor: _backgroundColor,
         body: RefreshIndicator(
           onRefresh: controller.refreshProfile,
           color: _primaryBlue,
+          // [PERBAIKAN 4] Wajib tambahkan edgeOffset jika tidak ada AppBar standar
+          // Ini mencegah error "Scaffold.geometryOf" saat drag
+          edgeOffset: topPadding + 20,
           child: SingleChildScrollView(
-            // Menggunakan BouncingScrollPhysics agar scroll terasa lebih halus dan elastis
             physics: const BouncingScrollPhysics(
               parent: AlwaysScrollableScrollPhysics(),
             ),
             child: Column(
               children: [
                 // Jarak aman dari Status Bar
-                SizedBox(height: MediaQuery.of(context).padding.top + 30),
+                SizedBox(height: topPadding + 30),
 
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Column(
                     children: [
-                      // 1. KARTU IDENTITAS BIRU (DENGAN ICON)
+                      // 1. KARTU IDENTITAS BIRU
                       _buildBlueIdentityCard(),
 
                       const SizedBox(height: 30),
@@ -81,6 +90,8 @@ class ProfileView extends GetView<ProfileController> {
                               Get.snackbar(
                                 "Info",
                                 "Fitur History Login segera hadir",
+                                snackPosition: SnackPosition.BOTTOM,
+                                margin: const EdgeInsets.all(20),
                               );
                             },
                           ),
@@ -126,8 +137,6 @@ class ProfileView extends GetView<ProfileController> {
                         style: TextStyle(color: _textSecondary, fontSize: 12),
                       ),
 
-                      // --- PERBAIKAN SCROLL ---
-                      // Memberikan ruang kosong di bawah agar konten terakhir bisa di-scroll ke atas nav bar
                       const SizedBox(height: 120),
                     ],
                   ),
@@ -140,7 +149,8 @@ class ProfileView extends GetView<ProfileController> {
     );
   }
 
-  // --- WIDGET KARTU IDENTITAS BIRU ---
+  // --- WIDGET HELPER (Tetap Sama) ---
+
   Widget _buildBlueIdentityCard() {
     return Container(
       width: double.infinity,
@@ -162,7 +172,6 @@ class ProfileView extends GetView<ProfileController> {
       clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
-          // Dekorasi Icon Transparan di pojok kanan bawah kartu
           Positioned(
             bottom: -30,
             right: -20,
@@ -172,7 +181,6 @@ class ProfileView extends GetView<ProfileController> {
               color: Colors.white.withOpacity(0.1),
             ),
           ),
-
           Padding(
             padding: const EdgeInsets.all(22),
             child: Obx(() {
@@ -188,7 +196,6 @@ class ProfileView extends GetView<ProfileController> {
                 children: [
                   Row(
                     children: [
-                      // Avatar
                       Container(
                         padding: const EdgeInsets.all(3),
                         decoration: const BoxDecoration(
@@ -211,7 +218,6 @@ class ProfileView extends GetView<ProfileController> {
                         ),
                       ),
                       const SizedBox(width: 16),
-                      // Teks Identitas
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -242,7 +248,6 @@ class ProfileView extends GetView<ProfileController> {
                     ],
                   ),
                   const SizedBox(height: 22),
-                  // Kotak Nomor HP (Transparan di dalam kartu biru)
                   Container(
                     padding: const EdgeInsets.symmetric(
                       vertical: 14,

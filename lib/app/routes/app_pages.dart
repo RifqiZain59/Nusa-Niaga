@@ -22,6 +22,8 @@ import '../modules/login/bindings/login_binding.dart';
 import '../modules/login/views/login_view.dart';
 import '../modules/lupapassword/bindings/lupapassword_binding.dart';
 import '../modules/lupapassword/views/lupapassword_view.dart';
+import '../modules/onboarding/bindings/onboarding_binding.dart';
+import '../modules/onboarding/views/onboarding_view.dart';
 import '../modules/payment/bindings/payment_binding.dart';
 import '../modules/payment/views/payment_view.dart';
 import '../modules/pesanansaya/bindings/pesanansaya_binding.dart';
@@ -30,6 +32,8 @@ import '../modules/promo/bindings/promo_binding.dart';
 import '../modules/promo/views/promo_view.dart';
 import '../modules/register/bindings/register_binding.dart';
 import '../modules/register/views/register_view.dart';
+import '../modules/splash/bindings/splash_binding.dart';
+import '../modules/splash/views/splash_view.dart';
 import '../modules/verifikasi/bindings/verifikasi_binding.dart';
 import '../modules/verifikasi/views/verifikasi_view.dart';
 
@@ -38,7 +42,7 @@ part 'app_routes.dart';
 class AppPages {
   AppPages._();
 
-  static const INITIAL = Routes.VERIFIKASI;
+  static const INITIAL = Routes.LOGIN;
 
   static final routes = [
     GetPage(
@@ -68,7 +72,7 @@ class AppPages {
     ),
     GetPage(
       name: _Paths.PROFILE,
-      page: () => const ProfileView(),
+      page: () => ProfileView(),
       binding: ProfileBinding(),
     ),
     GetPage(
@@ -88,7 +92,7 @@ class AppPages {
     ),
     GetPage(
       name: _Paths.DETAIL_MENU,
-      page: () => const DetailMenuView(),
+      page: () => DetailMenuView(),
       binding: DetailMenuBinding(),
     ),
     GetPage(
@@ -120,6 +124,16 @@ class AppPages {
       name: _Paths.SCANNER,
       page: () => const ScannerView(),
       binding: ScannerBinding(),
+    ),
+    GetPage(
+      name: _Paths.ONBOARDING,
+      page: () => const OnboardingView(),
+      binding: OnboardingBinding(),
+    ),
+    GetPage(
+      name: _Paths.SPLASH,
+      page: () => const SplashView(),
+      binding: SplashBinding(),
     ),
   ];
 }

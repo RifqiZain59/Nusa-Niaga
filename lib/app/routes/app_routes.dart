@@ -19,6 +19,8 @@ abstract class Routes {
   static const PESANANSAYA = _Paths.PESANANSAYA;
   static const DETAILPESANANSAYA = _Paths.DETAILPESANANSAYA;
   static const SCANNER = _Paths.SCANNER;
+  static const ONBOARDING = _Paths.ONBOARDING;
+  static const SPLASH = _Paths.SPLASH;
 }
 
 abstract class _Paths {
@@ -39,4 +41,6 @@ abstract class _Paths {
   static const PESANANSAYA = '/pesanansaya';
   static const DETAILPESANANSAYA = '/detailpesanansaya';
   static const SCANNER = '/scanner';
+  static const ONBOARDING = '/onboarding';
+  static const SPLASH = '/splash';
 }
