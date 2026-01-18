@@ -158,6 +158,19 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> loginViaUid(String uid) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/login_via_uid'),
+        headers: _headers,
+        body: jsonEncode({'uid': uid}),
+      );
+      return _processResponse(response);
+    } catch (e) {
+      return {'status': 'error', 'message': 'Gagal sinkronisasi user: $e'};
+    }
+  }
+
   // =======================================================================
   // 2. DATA PRODUK & FAVORIT
   // =======================================================================

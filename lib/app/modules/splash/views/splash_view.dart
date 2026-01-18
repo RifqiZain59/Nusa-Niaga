@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // PENTING: Untuk SystemUiOverlayStyle
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'dart:ui';
 import 'dart:math' as math;
@@ -11,23 +11,17 @@ class SplashView extends GetView<SplashController> {
 
   @override
   Widget build(BuildContext context) {
+    // Inject controller
     Get.put(SplashController());
 
-    // Menggunakan AnnotatedRegion untuk mengatur warna bar sistem
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
-        // Atur Status Bar (Atas)
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.light, // Ikon Putih (Android)
-        statusBarBrightness: Brightness.dark, // Ikon Putih (iOS)
-        // Atur Navigation Bar (Bawah)
-        systemNavigationBarColor:
-            Colors.transparent, // Transparan agar menyatu dengan gradient
-        systemNavigationBarIconBrightness: Brightness.light, // Ikon Putih
-        systemNavigationBarDividerColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarIconBrightness: Brightness.light,
       ),
       child: Scaffold(
-        // Mengatur extend agar gradient memenuhi layar hingga ke bawah navigation bar
         extendBody: true,
         extendBodyBehindAppBar: true,
         body: Stack(
@@ -178,7 +172,7 @@ class SplashView extends GetView<SplashController> {
 
             // 4. LOADING & VERSION
             Positioned(
-              bottom: 60, // Sedikit dinaikkan agar tidak tertutup nav bar
+              bottom: 60,
               left: 0,
               right: 0,
               child: Column(

@@ -20,7 +20,7 @@ class LoginController extends GetxController {
   // Instance Google Sign In
   final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
 
-  // Client ID dari google-services.json (Sesuai snippet Anda)
+  // Client ID dari google-services.json
   final String _webClientId =
       "130094613281-51akj108ldtaj3s3788gfgg45o9d5714.apps.googleusercontent.com";
 
@@ -36,7 +36,6 @@ class LoginController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    // Kita inisialisasi awal di sini untuk memastikan konfigurasi siap
     _initGoogleSignIn();
   }
 
@@ -49,103 +48,61 @@ class LoginController extends GetxController {
   }
 
   // =======================================================================
-  // 1. LOGIKA LOGIN GOOGLE (DIPERBARUI)
+  // 1. LOGIKA LOGIN GOOGLE (SUDAH BENAR)
   // =======================================================================
   Future<void> loginWithGoogle() async {
     try {
       isLoading.value = true;
-
-      // 1. Pastikan inisialisasi (Redundant tapi aman sesuai snippet update)
-      //    Beberapa versi plugin butuh re-init jika hot reload
       await _googleSignIn.initialize(serverClientId: _webClientId);
 
-      // 2. Trigger Login Pop-up
-      //    Menggunakan authenticate() untuk plugin v7+
       final GoogleSignInAccount? googleUser = await _googleSignIn
           .authenticate();
-
       if (googleUser == null) {
-        // User membatalkan login
         isLoading.value = false;
         return;
       }
 
-      // 3. Ambil Authentication Data (ID Token)
       final GoogleSignInAuthentication googleAuth =
           await googleUser.authentication;
-
-      // 4. Buat Credential Firebase
-      //    PENTING: accessToken diset null untuk Google Sign In v7.x ke atas
       final AuthCredential credential = GoogleAuthProvider.credential(
         accessToken: null,
         idToken: googleAuth.idToken,
       );
 
-      // 5. Sign In ke Firebase Auth
       final UserCredential userCredential = await _auth.signInWithCredential(
         credential,
       );
       final User? user = userCredential.user;
 
       if (user != null) {
-        // 6. Kirim data ke API Server (app.py)
-        //    Parameter disesuaikan dengan snippet update: email, name, uid
+        // Sync ke backend via UID
         final response = await _apiService.loginGoogle(
           email: user.email ?? "",
           name: user.displayName ?? "User Google",
           uid: user.uid,
         );
 
-        if (response != null && response['status'] == 'success') {
-          final userData = response['data'];
-
-          // 7. Simpan Session Lokal
-          await _saveSession(userData);
-
-          // (Opsional) Catat history login ke Firestore jika diperlukan
-          _tryRecordHistory(userData['id'].toString(), userData['name']);
-
-          // 8. Navigasi ke Home
-          Get.offAll(() => const HomeView());
+        if (response['status'] == 'success') {
+          _handleSuccessLogin(response['data']);
         } else {
-          _showCenterPopup(
-            title: "Gagal Sinkronisasi",
-            message: response?['message'] ?? "Gagal menyimpan data ke server.",
-            icon: Ionicons.server_outline,
-            color: Colors.orange,
-          );
-          // Jika gagal sync server, logout firebase agar tidak nyangkut
-          await _auth.signOut();
+          _handleBackendError(response);
         }
       }
     } catch (e) {
-      print("Error Login Google: $e");
-
-      String errorMessage = e.toString();
-      // Handling error umum agar user friendly
-      if (errorMessage.contains("canceled") ||
-          errorMessage.contains("cancelled")) {
-        // Jangan tampilkan popup jika user cuma cancel
-        return;
-      }
-
-      _showCenterPopup(
-        title: "Gagal Login",
-        message: "Terjadi kesalahan saat masuk dengan Google.",
-        icon: Ionicons.close_circle,
-        color: Colors.red,
-      );
+      _handleGeneralError("Login Google Gagal", e);
     } finally {
       isLoading.value = false;
     }
   }
 
   // =======================================================================
-  // 2. LOGIKA LOGIN MANUAL (EMAIL & PASSWORD)
+  // 2. LOGIKA LOGIN MANUAL (DIPERBAIKI: Firebase Auth First)
   // =======================================================================
   Future<void> login() async {
-    if (emailController.text.trim().isEmpty ||
-        passwordController.text.trim().isEmpty) {
+    String email = emailController.text.trim();
+    String password = passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
       _showCenterPopup(
         title: "Input Kosong",
         message: "Email dan Password harus diisi",
@@ -157,31 +114,62 @@ class LoginController extends GetxController {
 
     try {
       isLoading.value = true;
-      final response = await _apiService.loginPengguna(
-        emailController.text.trim(),
-        passwordController.text.trim(),
+
+      // [LANGKAH KUNCI]: Login ke Firebase Auth DULU
+      // Ini memastikan password terbaru (hasil reset email) terbaca.
+      UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
       );
 
-      if (response != null && response['status'] == 'success') {
-        final userData = response['data'];
-        await _saveSession(userData);
-        _tryRecordHistory(userData['id'].toString(), userData['name']);
-        _showSuccessPopup("Selamat Datang kembali!");
-      } else {
-        _showCenterPopup(
-          title: "Gagal Login",
-          message: response?['message'] ?? "Email atau Password salah.",
-          icon: Ionicons.close_circle,
-          color: Colors.red,
-        );
+      User? user = userCredential.user;
+
+      if (user != null) {
+        // Jika password di Firebase benar, ambil data profil dari Backend pakai UID
+        // Kita TIDAK LAGI kirim password ke backend.
+        final response = await _apiService.loginViaUid(user.uid);
+
+        if (response['status'] == 'success') {
+          _handleSuccessLogin(response['data']);
+        } else {
+          // Kasus aneh: Login Firebase sukses, tapi data di backend server hilang/rusak
+          await _auth.signOut();
+          _showCenterPopup(
+            title: "Data Tidak Ditemukan",
+            message:
+                "Akun valid, tapi profil pengguna tidak ditemukan di server.",
+            icon: Ionicons.server_outline,
+            color: Colors.orange,
+          );
+        }
       }
-    } catch (e) {
+    } on FirebaseAuthException catch (e) {
+      // Handle Error Spesifik Firebase (Password Salah, User Ga Ada, dll)
+      String title = "Gagal Login";
+      String msg = "Terjadi kesalahan.";
+
+      if (e.code == 'user-not-found') {
+        msg = "Email tidak terdaftar.";
+      } else if (e.code == 'wrong-password') {
+        msg = "Password salah.";
+      } else if (e.code == 'invalid-email') {
+        msg = "Format email salah.";
+      } else if (e.code == 'user-disabled') {
+        msg = "Akun ini telah dinonaktifkan.";
+      } else if (e.code == 'too-many-requests') {
+        msg = "Terlalu banyak percobaan. Silakan coba lagi nanti.";
+      } else {
+        msg = e.message ?? "Gagal autentikasi.";
+      }
+
       _showCenterPopup(
-        title: "Error Sistem",
-        message: "Gagal menghubungi server: $e",
-        icon: Ionicons.warning,
+        title: title,
+        message: msg,
+        icon: Ionicons.close_circle,
         color: Colors.red,
       );
+    } catch (e) {
+      _handleGeneralError("Error Sistem", e);
     } finally {
       isLoading.value = false;
     }
@@ -191,6 +179,35 @@ class LoginController extends GetxController {
   // HELPER FUNCTIONS
   // =======================================================================
 
+  Future<void> _handleSuccessLogin(Map<String, dynamic> userData) async {
+    await _saveSession(userData);
+    _tryRecordHistory(userData['id'].toString(), userData['name']);
+    _showSuccessPopup("Selamat Datang, ${userData['name']}!");
+  }
+
+  void _handleBackendError(Map<String, dynamic> response) async {
+    await _auth.signOut();
+    _showCenterPopup(
+      title: "Gagal Sinkronisasi",
+      message: response['message'] ?? "Gagal terhubung ke server database.",
+      icon: Ionicons.server_outline,
+      color: Colors.orange,
+    );
+  }
+
+  void _handleGeneralError(String title, dynamic e) {
+    // Filter error user cancel agar tidak mengganggu
+    if (e.toString().contains("canceled")) return;
+
+    print("Login Error: $e");
+    _showCenterPopup(
+      title: title,
+      message: "Terjadi kesalahan: $e",
+      icon: Ionicons.warning,
+      color: Colors.red,
+    );
+  }
+
   Future<void> _saveSession(Map<String, dynamic> userData) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('user_id', userData['id'].toString());
@@ -198,6 +215,13 @@ class LoginController extends GetxController {
     await prefs.setString('user_email', userData['email'] ?? '');
     await prefs.setString('user_phone', userData['phone'] ?? '');
     await prefs.setString('user_role', userData['role'] ?? 'Member');
+    // Simpan avatar jika ada
+    if (userData['photo_url'] != null || userData['image_url'] != null) {
+      await prefs.setString(
+        'user_avatar',
+        userData['photo_url'] ?? userData['image_url'],
+      );
+    }
     await prefs.setBool('is_login', true);
   }
 
@@ -211,6 +235,10 @@ class LoginController extends GetxController {
         AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
         deviceName = "${androidInfo.brand} ${androidInfo.model}";
         platform = 'Android ${androidInfo.version.release}';
+      } else if (Platform.isIOS) {
+        IosDeviceInfo iosInfo = await deviceInfo.iosInfo;
+        deviceName = iosInfo.name ?? 'iPhone';
+        platform = 'iOS ${iosInfo.systemVersion}';
       }
 
       await _firestore.collection('login_history').add({
@@ -220,9 +248,7 @@ class LoginController extends GetxController {
         'platform': platform,
         'login_time': FieldValue.serverTimestamp(),
       });
-    } catch (e) {
-      print("Gagal mencatat riwayat login: $e");
-    }
+    } catch (_) {}
   }
 
   void _showSuccessPopup(String message) async {
@@ -247,7 +273,7 @@ class LoginController extends GetxController {
       Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: Container(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(20),
@@ -255,26 +281,56 @@ class LoginController extends GetxController {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 50, color: color),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 40, color: color),
+              ),
               const SizedBox(height: 20),
               Text(
                 title,
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
+                  color: Colors.black87,
                 ),
               ),
               const SizedBox(height: 10),
-              Text(message, textAlign: TextAlign.center),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey[600], height: 1.5),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Get.back(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: color,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: const Text(
+                    "Tutup",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
       ),
       barrierDismissible: false,
     );
-    Future.delayed(const Duration(milliseconds: 1500), () {
-      if (Get.isDialogOpen == true) Get.back();
-    });
   }
 
   @override

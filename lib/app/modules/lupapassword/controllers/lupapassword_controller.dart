@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:ionicons/ionicons.dart';
 
 class LupapasswordController extends GetxController {
-  // 1. Text Controller untuk mengambil input user
+  // 1. Text Controller
   late TextEditingController emailC;
 
-  // 2. Variable untuk loading state (agar tombol bisa muter saat proses)
+  // 2. Loading State
   var isLoading = false.obs;
 
   // Instance Firebase Auth
@@ -20,7 +21,7 @@ class LupapasswordController extends GetxController {
 
   @override
   void onClose() {
-    emailC.dispose(); // Wajib dispose agar memori tidak bocor
+    emailC.dispose();
     super.onClose();
   }
 
@@ -31,10 +32,11 @@ class LupapasswordController extends GetxController {
     // Validasi Input Kosong
     if (email.isEmpty) {
       Get.snackbar(
-        "Error",
-        "Email tidak boleh kosong",
-        backgroundColor: Colors.redAccent,
-        colorText: Colors.white,
+        "Peringatan",
+        "Mohon masukkan alamat email Anda.",
+        backgroundColor: Colors.amber[100],
+        colorText: Colors.orange[900],
+        icon: Icon(Ionicons.alert_circle, color: Colors.orange[900]),
       );
       return;
     }
@@ -42,63 +44,112 @@ class LupapasswordController extends GetxController {
     // Validasi Format Email
     if (!GetUtils.isEmail(email)) {
       Get.snackbar(
-        "Error",
-        "Format email tidak valid",
-        backgroundColor: Colors.redAccent,
-        colorText: Colors.white,
+        "Format Salah",
+        "Format email tidak valid (contoh: nama@email.com)",
+        backgroundColor: Colors.amber[100],
+        colorText: Colors.orange[900],
+        icon: Icon(Ionicons.warning, color: Colors.orange[900]),
       );
       return;
     }
 
     try {
-      isLoading.value = true; // Mulai Loading
+      isLoading.value = true;
 
       // --- CORE LOGIC FIREBASE ---
       await _auth.sendPasswordResetEmail(email: email);
       // ---------------------------
 
-      isLoading.value = false; // Stop Loading
+      isLoading.value = false;
 
-      // Tampilkan Pesan Sukses
-      Get.snackbar(
-        "Berhasil",
-        "Link reset password telah dikirim ke $email. Silakan cek Inbox atau folder Spam email Anda.",
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
-        duration: const Duration(seconds: 4),
-        icon: const Icon(Icons.check_circle, color: Colors.white),
+      // Tampilkan Dialog Sukses yang Informatif
+      Get.defaultDialog(
+        title: "Email Terkirim!",
+        titleStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        content: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.green[50],
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Ionicons.mail_unread,
+                size: 40,
+                color: Colors.green,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              "Link reset password telah dikirim ke:\n$email",
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 14, color: Colors.black87),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              "Silakan cek Inbox atau folder Spam Anda.",
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: Colors.grey),
+            ),
+          ],
+        ),
+        confirm: SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: () {
+              Get.back(); // Tutup Dialog
+              Get.back(); // Kembali ke Login
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2563EB), // Primary Blue
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text(
+              "Kembali ke Login",
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ),
+        radius: 16,
+        contentPadding: const EdgeInsets.all(20),
       );
 
-      // Opsional: Kosongkan field setelah kirim
+      // Bersihkan input
       emailC.clear();
     } on FirebaseAuthException catch (e) {
       isLoading.value = false;
 
-      // Handle Error Spesifik dari Firebase
-      String errorMessage = "Terjadi kesalahan.";
+      String title = "Gagal Mengirim";
+      String message = "Terjadi kesalahan sistem.";
 
       if (e.code == 'user-not-found') {
-        errorMessage = "Email ini belum terdaftar di aplikasi.";
+        title = "Email Tidak Ditemukan";
+        message = "Email ini belum terdaftar di aplikasi kami.";
       } else if (e.code == 'invalid-email') {
-        errorMessage = "Format email yang dimasukkan salah.";
+        title = "Email Tidak Valid";
+        message = "Format email yang Anda masukkan salah.";
       } else {
-        errorMessage = e.message ?? "Gagal mengirim email reset.";
+        message = e.message ?? "Gagal mengirim email reset.";
       }
 
       Get.snackbar(
-        "Gagal",
-        errorMessage,
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-        icon: const Icon(Icons.error, color: Colors.white),
+        title,
+        message,
+        backgroundColor: Colors.red[100],
+        colorText: Colors.red[900],
+        icon: Icon(Ionicons.close_circle, color: Colors.red[900]),
+        duration: const Duration(seconds: 4),
       );
     } catch (e) {
       isLoading.value = false;
       Get.snackbar(
-        "Error",
-        "Terjadi kesalahan sistem.",
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
+        "Error Sistem",
+        "Terjadi kesalahan yang tidak diketahui: $e",
+        backgroundColor: Colors.red[100],
+        colorText: Colors.red[900],
       );
     }
   }
