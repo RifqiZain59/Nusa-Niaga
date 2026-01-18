@@ -62,7 +62,7 @@ class LoginView extends GetView<LoginController> {
                 ),
               ),
 
-              // --- 3. MAIN CONTENT (MENGGUNAKAN DESIGN AWAL ANDA) ---
+              // --- 3. MAIN CONTENT ---
               SafeArea(
                 child: Center(
                   child: SingleChildScrollView(
@@ -73,10 +73,10 @@ class LoginView extends GetView<LoginController> {
                     ),
                     child: Column(
                       children: [
-                        _buildHeader(), // Asset logo dikembalikan
+                        _buildHeader(), // Logo App
                         const SizedBox(height: 30),
 
-                        // --- GLASS CARD FORM (DESIGN AWAL ANDA) ---
+                        // --- GLASS CARD FORM ---
                         ClipRRect(
                           borderRadius: BorderRadius.circular(32),
                           child: BackdropFilter(
@@ -120,14 +120,18 @@ class LoginView extends GetView<LoginController> {
                                     ),
                                   ),
                                   const SizedBox(height: 28),
+
                                   _buildInput(
                                     label: "Email",
                                     hint: "email@anda.com",
                                     icon: Icons.alternate_email_rounded,
                                     controller: controller.emailController,
                                     keyboardType: TextInputType.emailAddress,
+                                    textInputAction: TextInputAction.next,
                                   ),
+
                                   const SizedBox(height: 18),
+
                                   Obx(
                                     () => _buildInput(
                                       label: "Password",
@@ -135,6 +139,7 @@ class LoginView extends GetView<LoginController> {
                                       icon: Icons.lock_outline_rounded,
                                       controller: controller.passwordController,
                                       isPassword: controller.isObscure.value,
+                                      textInputAction: TextInputAction.done,
                                       suffixIcon: IconButton(
                                         onPressed: () =>
                                             controller.togglePassword(),
@@ -148,24 +153,34 @@ class LoginView extends GetView<LoginController> {
                                       ),
                                     ),
                                   ),
+
                                   const SizedBox(height: 12),
+
                                   Align(
                                     alignment: Alignment.centerRight,
                                     child: InkWell(
                                       onTap: () => Get.to(
                                         () => const LupapasswordView(),
                                       ),
-                                      child: const Text(
-                                        "Lupa Password?",
-                                        style: TextStyle(
-                                          color: primaryBlue,
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 13,
+                                      child: const Padding(
+                                        padding: EdgeInsets.symmetric(
+                                          vertical: 4.0,
+                                        ),
+                                        child: Text(
+                                          "Lupa Password?",
+                                          style: TextStyle(
+                                            color: primaryBlue,
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 13,
+                                          ),
                                         ),
                                       ),
                                     ),
                                   ),
+
                                   const SizedBox(height: 24),
+
+                                  // Tombol Masuk Biasa
                                   Obx(
                                     () => _buildSubmitButton(
                                       controller.isLoading.value
@@ -173,6 +188,78 @@ class LoginView extends GetView<LoginController> {
                                           : "MASUK",
                                     ),
                                   ),
+
+                                  // --- GOOGLE SIGN IN SECTION ---
+                                  const SizedBox(height: 20),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Divider(
+                                          color: Colors.grey.shade300,
+                                        ),
+                                      ),
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                        ),
+                                        child: Text(
+                                          "ATAU",
+                                          style: TextStyle(
+                                            color: Colors.grey.shade500,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: Divider(
+                                          color: Colors.grey.shade300,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 20),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    height: 55,
+                                    child: OutlinedButton.icon(
+                                      onPressed: () =>
+                                          controller.loginWithGoogle(),
+                                      style: OutlinedButton.styleFrom(
+                                        backgroundColor: Colors.white,
+                                        side: BorderSide(
+                                          color: Colors.grey.shade300,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            18,
+                                          ),
+                                        ),
+                                      ),
+                                      // Menggunakan icon Google dari URL Wikimedia
+                                      icon: Image.network(
+                                        'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/768px-Google_%22G%22_logo.svg.png',
+                                        height: 24,
+                                        errorBuilder:
+                                            (context, error, stackTrace) =>
+                                                const Icon(
+                                                  Icons.g_mobiledata,
+                                                  color: Colors.red,
+                                                  size: 30,
+                                                ),
+                                      ),
+                                      label: const Text(
+                                        "Masuk dengan Google",
+                                        style: TextStyle(
+                                          color: textDark,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 15,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+
+                                  // ----------------------------------------
                                 ],
                               ),
                             ),
@@ -192,7 +279,8 @@ class LoginView extends GetView<LoginController> {
     );
   }
 
-  // --- HELPER DESIGN AWAL ---
+  // --- HELPER WIDGETS ---
+
   Widget _buildInput({
     required String label,
     required String hint,
@@ -200,6 +288,7 @@ class LoginView extends GetView<LoginController> {
     required TextEditingController controller,
     bool isPassword = false,
     TextInputType keyboardType = TextInputType.text,
+    TextInputAction textInputAction = TextInputAction.done,
     Widget? suffixIcon,
   }) {
     return Column(
@@ -215,29 +304,44 @@ class LoginView extends GetView<LoginController> {
         ),
         const SizedBox(height: 8),
         Container(
+          // [PERBAIKAN] Tidak menggunakan height fixed agar fleksibel
+          constraints: const BoxConstraints(minHeight: 55),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: Colors.grey.shade200),
           ),
-          child: TextField(
-            controller: controller,
-            obscureText: isPassword,
-            keyboardType: keyboardType,
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
-              color: textDark,
-            ),
-            decoration: InputDecoration(
-              hintText: hint,
-              prefixIcon: Icon(
-                icon,
-                color: primaryBlue.withOpacity(0.8),
-                size: 22,
+          child: Center(
+            child: TextField(
+              controller: controller,
+              obscureText: isPassword,
+              keyboardType: keyboardType,
+              textInputAction: textInputAction,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                color: textDark,
+                fontSize: 15, // Ukuran font sedikit diperbesar
               ),
-              suffixIcon: suffixIcon,
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(vertical: 16),
+              decoration: InputDecoration(
+                hintText: hint,
+                hintStyle: TextStyle(
+                  color: Colors.grey.shade400,
+                  fontSize: 14,
+                  fontWeight: FontWeight.normal,
+                ),
+                prefixIcon: Icon(
+                  icon,
+                  color: primaryBlue.withOpacity(0.8),
+                  size: 22,
+                ),
+                suffixIcon: suffixIcon,
+                border: InputBorder.none,
+                isDense: true, // Membuat layout lebih compact
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 18, // Padding vertikal yang cukup
+                ),
+              ),
             ),
           ),
         ),
@@ -252,6 +356,13 @@ class LoginView extends GetView<LoginController> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
         gradient: const LinearGradient(colors: [primaryBlue, lightBlue]),
+        boxShadow: [
+          BoxShadow(
+            color: primaryBlue.withOpacity(0.3),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
       ),
       child: ElevatedButton(
         onPressed: controller.isLoading.value ? null : () => controller.login(),
@@ -262,14 +373,24 @@ class LoginView extends GetView<LoginController> {
             borderRadius: BorderRadius.circular(18),
           ),
         ),
-        child: Text(
-          label,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w800,
-            fontSize: 16,
-          ),
-        ),
+        child: controller.isLoading.value
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2.5,
+                ),
+              )
+            : Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 16,
+                  letterSpacing: 0.5,
+                ),
+              ),
       ),
     );
   }
@@ -288,7 +409,7 @@ class LoginView extends GetView<LoginController> {
         height: 80,
         width: 80,
         child: Image.asset(
-          'assets/logo_app/logo.png', // Asset asli dikembalikan
+          'assets/logo_app/logo.png',
           fit: BoxFit.contain,
           errorBuilder: (_, __, ___) =>
               const Icon(Icons.store, size: 50, color: primaryBlue),
@@ -313,6 +434,8 @@ class LoginView extends GetView<LoginController> {
               fontWeight: FontWeight.bold,
               color: Colors.white,
               fontSize: 15,
+              decoration: TextDecoration.underline,
+              decorationColor: Colors.white,
             ),
           ),
         ),
